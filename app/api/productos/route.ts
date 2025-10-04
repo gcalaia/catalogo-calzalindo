@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 
 const COEFICIENTES = {
   contado: -5,
@@ -17,8 +17,6 @@ function calcularPrecios(precioBase: number) {
 }
 
 export async function GET(request: Request) {
-  const prisma = new PrismaClient();
-  
   try {
     const { searchParams } = new URL(request.url);
     
@@ -27,16 +25,21 @@ export async function GET(request: Request) {
     const color = searchParams.get('color');
     const search = searchParams.get('search');
     const rubro = searchParams.get('rubro');
+    
+    // Paginación
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '100');
+    const offset = (page - 1) * limit;
 
-     let sqlQuery = `
-  SELECT 
-    id, codigo, nombre, talla, color, 
-    marca_descripcion, rubro, precio_lista, 
-    stock_disponible, imagen_url,
-    fecha_compra, fecha_modificacion
-  FROM "Producto"
-  WHERE stock_disponible > 0
-`;
+    let sqlQuery = `
+      SELECT 
+        id, codigo, nombre, talla, color, 
+        marca_descripcion, rubro, precio_lista, 
+        stock_disponible, imagen_url,
+        fecha_compra, fecha_modificacion
+      FROM "Producto"
+      WHERE stock_disponible > 0
+    `;
     
     const params: any[] = [];
     let paramIndex = 1;
@@ -71,33 +74,52 @@ export async function GET(request: Request) {
       paramIndex++;
     }
 
-    sqlQuery += ` ORDER BY nombre ASC LIMIT 10000`;
+    // Primero obtener el total para saber cuántas páginas hay
+    const countQuery = sqlQuery.replace(
+      'SELECT id, codigo, nombre, talla, color, marca_descripcion, rubro, precio_lista, stock_disponible, imagen_url, fecha_compra, fecha_modificacion',
+      'SELECT COUNT(*) as total'
+    );
+    
+    const countResult = await prisma.$queryRawUnsafe(countQuery, ...params) as any[];
+    const total = parseInt(countResult[0].total);
+
+    sqlQuery += ` ORDER BY nombre ASC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    params.push(limit, offset);
 
     const productos = await prisma.$queryRawUnsafe(sqlQuery, ...params);
 
-   const productosConPrecios = (productos as any[]).map((p: any) => {
-  const precios = calcularPrecios(p.precio_lista);
-  
-  return {
-    id: p.id,
-    codigo: p.codigo,
-    nombre: p.nombre,
-    talla: (!p.talla || p.talla === 'null' || p.talla === '') ? null : p.talla,
-    color: (!p.color || p.color === 'null' || p.color === '' || p.color.startsWith('#')) ? null : p.color,
-    marca_descripcion: p.marca_descripcion,
-    rubro: p.rubro,
-    stock_disponible: p.stock_disponible,
-    imagen_url: p.imagen_url,
-    precio_lista: precios.precioBase,
-    precio_contado: precios.contado,
-    precio_debito: precios.debito,
-    precio_regular: precios.regular,
-    fecha_compra: p.fecha_compra ? new Date(p.fecha_compra).toISOString() : null, // AGREGAR
-    fecha_modificacion: p.fecha_modificacion ? new Date(p.fecha_modificacion).toISOString() : null, // AGREGAR
-  };
-});
+    const productosConPrecios = (productos as any[]).map((p: any) => {
+      const precios = calcularPrecios(p.precio_lista);
+      
+      return {
+        id: p.id,
+        codigo: p.codigo,
+        nombre: p.nombre,
+        talla: (!p.talla || p.talla === 'null' || p.talla === '') ? null : p.talla,
+        color: (!p.color || p.color === 'null' || p.color === '' || p.color.startsWith('#')) ? null : p.color,
+        marca_descripcion: p.marca_descripcion,
+        rubro: p.rubro,
+        stock_disponible: p.stock_disponible,
+        imagen_url: p.imagen_url,
+        precio_lista: precios.precioBase,
+        precio_contado: precios.contado,
+        precio_debito: precios.debito,
+        precio_regular: precios.regular,
+        fecha_compra: p.fecha_compra ? new Date(p.fecha_compra).toISOString() : null,
+        fecha_modificacion: p.fecha_modificacion ? new Date(p.fecha_modificacion).toISOString() : null,
+      };
+    });
 
-    return NextResponse.json(productosConPrecios);
+    return NextResponse.json({
+      productos: productosConPrecios,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        hasMore: page < Math.ceil(total / limit)
+      }
+    });
     
   } catch (error) {
     console.error('Error en API:', error);
@@ -105,7 +127,5 @@ export async function GET(request: Request) {
       error: 'Error al cargar productos',
       details: error instanceof Error ? error.message : String(error)
     }, { status: 500 });
-  } finally {
-    await prisma.$disconnect();
   }
 }

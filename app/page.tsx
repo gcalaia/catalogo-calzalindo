@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import ProductCardGrouped from '@/components/ProductCardGrouped';
 import Filters, { FilterValues } from '@/components/Filters';
 import { Loader2, AlertCircle } from 'lucide-react';
@@ -48,8 +48,12 @@ export default function Home() {
   const [productosAgrupados, setProductosAgrupados] = useState<ProductoAgrupado[]>([]);
   const [filteredProductos, setFilteredProductos] = useState<ProductoAgrupado[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ordenamiento, setOrdenamiento] = useState<string>('nombre');
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [totalProductos, setTotalProductos] = useState(0);
   const [filtrosActuales, setFiltrosActuales] = useState<FilterValues>({
     search: '',
     marca: '',
@@ -63,77 +67,129 @@ export default function Home() {
   const [colores, setColores] = useState<string[]>([]);
   const [rubros, setRubros] = useState<string[]>([]);
 
-  useEffect(() => {
-    fetch('/api/productos')
-      .then((res) => {
-        if (!res.ok) throw new Error(`Error ${res.status}: ${res.statusText}`);
-        return res.json();
-      })
-      .then((data: Producto[]) => {
-        setProductos(data);
+  const observerTarget = useRef<HTMLDivElement>(null);
 
-                           const grupos: Record<string, ProductoAgrupado> = data.reduce(
-  (acc, producto) => {
-    const key = `${producto.nombre}-${producto.marca_descripcion || 'sin-marca'}`;
-
-    if (!acc[key]) {
-      acc[key] = {
-        nombre: producto.nombre,
-        marca_descripcion: producto.marca_descripcion ?? null,
-        rubro: producto.rubro ?? null,
-        precio_contado: producto.precio_contado,
-        precio_debito: producto.precio_debito,
-        precio_regular: producto.precio_regular,
-        imagen_url: producto.imagen_url ?? null,
-        fecha_compra: producto.fecha_compra ?? null,
-        variantes: [],
-      };
+  const cargarProductos = useCallback(async (pageNum: number, reset: boolean = false) => {
+    if (reset) {
+      setLoading(true);
+    } else {
+      setLoadingMore(true);
     }
 
-    acc[key].variantes.push({
-      id: producto.id,
-      codigo: producto.codigo,
-      talla: producto.talla ?? null,
-      color: producto.color ?? null,
-      stock_disponible: producto.stock_disponible,
-    });
+    try {
+      const params = new URLSearchParams({
+        page: pageNum.toString(),
+        limit: '100',
+        ...(filtrosActuales.marca && { marca: filtrosActuales.marca }),
+        ...(filtrosActuales.talla && { talla: filtrosActuales.talla }),
+        ...(filtrosActuales.color && { color: filtrosActuales.color }),
+        ...(filtrosActuales.rubro && { rubro: filtrosActuales.rubro }),
+        ...(filtrosActuales.search && { search: filtrosActuales.search }),
+      });
 
-    return acc;
-  },
-  {} as Record<string, ProductoAgrupado>
-);
+      const res = await fetch(`/api/productos?${params}`);
+      if (!res.ok) throw new Error(`Error ${res.status}: ${res.statusText}`);
+      
+      const data = await res.json();
+      
+      const nuevosProductos = reset ? data.productos : [...productos, ...data.productos];
+      setProductos(nuevosProductos);
+      setHasMore(data.pagination.hasMore);
+      setTotalProductos(data.pagination.total);
+      
+      // Agrupar productos
+      const grupos: Record<string, ProductoAgrupado> = nuevosProductos.reduce(
+        (acc, producto) => {
+          const key = `${producto.nombre}-${producto.marca_descripcion || 'sin-marca'}`;
 
-// ✅ Sin Object.values — versión 100% compatible con build de Vercel
-const agrupados: ProductoAgrupado[] = [];
-for (const k in grupos) {
-  agrupados.push(grupos[k]);
-}
+          if (!acc[key]) {
+            acc[key] = {
+              nombre: producto.nombre,
+              marca_descripcion: producto.marca_descripcion ?? null,
+              rubro: producto.rubro ?? null,
+              precio_contado: producto.precio_contado,
+              precio_debito: producto.precio_debito,
+              precio_regular: producto.precio_regular,
+              imagen_url: producto.imagen_url ?? null,
+              fecha_compra: producto.fecha_compra ?? null,
+              variantes: [],
+            };
+          }
 
-setProductosAgrupados(agrupados);
-setFilteredProductos(agrupados);;
+          acc[key].variantes.push({
+            id: producto.id,
+            codigo: producto.codigo,
+            talla: producto.talla ?? null,
+            color: producto.color ?? null,
+            stock_disponible: producto.stock_disponible,
+          });
 
+          return acc;
+        },
+        {} as Record<string, ProductoAgrupado>
+      );
 
+      const agrupados: ProductoAgrupado[] = [];
+      for (const k in grupos) {
+        agrupados.push(grupos[k]);
+      }
 
-
-
-        const uniqueMarcas = [...new Set(data.map((p) => p.marca_descripcion).filter(isString))].sort();
-        const uniqueTallas = [...new Set(data.map((p) => p.talla).filter(isString))].sort();
-        const uniqueColores = [...new Set(data.map((p) => p.color).filter(isString))].sort();
-        const uniqueRubros = [...new Set(data.map((p) => p.rubro).filter(isString))].sort();
-
+      setProductosAgrupados(agrupados);
+      setFilteredProductos(aplicarOrdenamiento(agrupados, ordenamiento));
+      
+      // Extraer filtros únicos solo la primera vez
+      if (reset) {
+        const uniqueMarcas = [...new Set(nuevosProductos.map((p) => p.marca_descripcion).filter(isString))].sort();
+        const uniqueTallas = [...new Set(nuevosProductos.map((p) => p.talla).filter(isString))].sort();
+        const uniqueColores = [...new Set(nuevosProductos.map((p) => p.color).filter(isString))].sort();
+        const uniqueRubros = [...new Set(nuevosProductos.map((p) => p.rubro).filter(isString))].sort();
+        
         setMarcas(uniqueMarcas);
         setTallas(uniqueTallas);
         setColores(uniqueColores);
         setRubros(uniqueRubros);
+      }
+      
+    } catch (err) {
+      console.error('Error cargando productos:', err);
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  }, [productos, filtrosActuales, ordenamiento]);
 
-        setLoading(false);
-      })
-      .catch((err: Error) => {
-        console.error('Error cargando productos:', err);
-        setError(err.message);
-        setLoading(false);
-      });
-  }, []);
+  // Cargar primera página
+  useEffect(() => {
+    setPage(1);
+    setProductos([]);
+    cargarProductos(1, true);
+  }, [filtrosActuales]);
+
+  // Infinite scroll observer
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      entries => {
+        if (entries[0].isIntersecting && hasMore && !loadingMore && !loading) {
+          const nextPage = page + 1;
+          setPage(nextPage);
+          cargarProductos(nextPage, false);
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    const currentTarget = observerTarget.current;
+    if (currentTarget) {
+      observer.observe(currentTarget);
+    }
+
+    return () => {
+      if (currentTarget) {
+        observer.unobserve(currentTarget);
+      }
+    };
+  }, [hasMore, loadingMore, loading, page, cargarProductos]);
 
   const aplicarOrdenamiento = (prods: ProductoAgrupado[], tipo: string) => {
     const ordenados = [...prods];
@@ -168,64 +224,18 @@ setFilteredProductos(agrupados);;
 
   const handleFilterChange = (filters: FilterValues) => {
     setFiltrosActuales(filters);
-    let filtered = productosAgrupados;
-
-    if (filters.search) {
-      filtered = filtered.filter(
-        (p) =>
-          p.nombre.toLowerCase().includes(filters.search.toLowerCase()) ||
-          p.variantes.some((v) => v.codigo.toString().includes(filters.search))
-      );
-    }
-
-    if (filters.rubro) filtered = filtered.filter((p) => p.rubro === filters.rubro);
-    if (filters.marca) filtered = filtered.filter((p) => p.marca_descripcion === filters.marca);
-
-    if (filters.talla) {
-      filtered = filtered.filter((p) => p.variantes.some((v) => v.talla === filters.talla));
-    }
-
-    if (filters.color) {
-      filtered = filtered.filter((p) => p.variantes.some((v) => v.color === filters.color));
-    }
-
-    filtered = aplicarOrdenamiento(filtered, ordenamiento);
-    setFilteredProductos(filtered);
   };
 
   useEffect(() => {
     const handleOrdenarEvent = (e: Event) => {
       const nuevoOrden = (e as CustomEvent<string>).detail as string;
       setOrdenamiento(nuevoOrden);
-
-      let filtered = productosAgrupados;
-
-      if (filtrosActuales.search) {
-        filtered = filtered.filter(
-          (p) =>
-            p.nombre.toLowerCase().includes(filtrosActuales.search.toLowerCase()) ||
-            p.variantes.some((v) => v.codigo.toString().includes(filtrosActuales.search))
-        );
-      }
-
-      if (filtrosActuales.rubro) filtered = filtered.filter((p) => p.rubro === filtrosActuales.rubro);
-      if (filtrosActuales.marca) filtered = filtered.filter((p) => p.marca_descripcion === filtrosActuales.marca);
-
-      if (filtrosActuales.talla) {
-        filtered = filtered.filter((p) => p.variantes.some((v) => v.talla === filtrosActuales.talla));
-      }
-
-      if (filtrosActuales.color) {
-        filtered = filtered.filter((p) => p.variantes.some((v) => v.color === filtrosActuales.color));
-      }
-
-      filtered = aplicarOrdenamiento(filtered, nuevoOrden);
-      setFilteredProductos(filtered);
+      setFilteredProductos(aplicarOrdenamiento(productosAgrupados, nuevoOrden));
     };
 
     window.addEventListener('ordenar', handleOrdenarEvent as EventListener);
     return () => window.removeEventListener('ordenar', handleOrdenarEvent as EventListener);
-  }, [filtrosActuales, productosAgrupados]);
+  }, [productosAgrupados]);
 
   if (loading) {
     return (
@@ -275,7 +285,7 @@ setFilteredProductos(agrupados);;
           <main className="lg:col-span-3">
             <div className="mb-4 flex items-center justify-between">
               <p className="text-gray-600">
-                {filteredProductos.length} {filteredProductos.length === 1 ? 'producto' : 'productos'}
+                Mostrando {filteredProductos.length} de {totalProductos} productos
               </p>
             </div>
 
@@ -284,6 +294,22 @@ setFilteredProductos(agrupados);;
                 <ProductCardGrouped key={`${producto.nombre}-${index}`} {...producto} />
               ))}
             </div>
+
+            {/* Infinite scroll trigger */}
+            <div ref={observerTarget} className="h-20 flex items-center justify-center mt-8">
+              {loadingMore && (
+                <div className="flex flex-col items-center gap-2">
+                  <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+                  <p className="text-sm text-gray-500">Cargando más productos...</p>
+                </div>
+              )}
+            </div>
+
+            {!hasMore && filteredProductos.length > 0 && (
+              <div className="text-center py-8">
+                <p className="text-gray-500">Has visto todos los productos disponibles</p>
+              </div>
+            )}
 
             {filteredProductos.length === 0 && (
               <div className="text-center py-12">
