@@ -33,12 +33,12 @@ interface ProductoAgrupado {
   imagen_url?: string | null;
   fecha_compra?: string | null;
   variantes: Array<{
-  id: number;
-  codigo: number;
-  talla: string | null | undefined;  // <- Agregar | undefined
-  color: string | null | undefined;  // <- Agregar | undefined
-  stock_disponible: number;
-}>;
+    id: number;
+    codigo: number;
+    talla: string | null;
+    color: string | null;
+    stock_disponible: number;
+  }>;
 }
 
 export default function Home() {
@@ -89,13 +89,13 @@ export default function Home() {
             };
           }
           
-               acc[key].variantes.push({
-                id: producto.id,
-                codigo: producto.codigo,
-                talla: (producto.talla ?? null) as string | null,
-                color: (producto.color ?? null) as string | null,
-                stock_disponible: producto.stock_disponible,
-              });
+          acc[key].variantes.push({
+            id: producto.id,
+            codigo: producto.codigo,
+            talla: producto.talla || null,
+            color: producto.color || null,
+            stock_disponible: producto.stock_disponible,
+          });
           
           return acc;
         }, {});
@@ -127,13 +127,13 @@ export default function Home() {
     const ordenados = [...productos];
     
     switch(tipo) {
-    case 'recientes':
-  ordenados.sort((a, b) => {
-    if (!a.fecha_compra) return 1;
-    if (!b.fecha_compra) return -1;
-    return new Date(b.fecha_compra).getTime() - new Date(a.fecha_compra).getTime();
-  });
-  break;
+      case 'recientes':
+        ordenados.sort((a, b) => {
+          if (!a.fecha_compra) return 1;
+          if (!b.fecha_compra) return -1;
+          return new Date(b.fecha_compra).getTime() - new Date(a.fecha_compra).getTime();
+        });
+        break;
       case 'antiguos':
         ordenados.sort((a, b) => {
           if (!a.fecha_compra) return 1;
