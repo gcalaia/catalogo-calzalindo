@@ -10,31 +10,21 @@ datasource db {
 }
 
 model Producto {
-  id                   Int       @id @default(autoincrement())
-  codigo               Int       @unique
-  nombre               String
-  talla                String?
-  color                String?
-  marca_descripcion    String?
-  rubro                String?
-  subrubro_descripcion String?   // AGREGAR ESTA LÍNEA
-  tipo_calzado         String?
-  temporada            String?
-  precio_lista         Float
-  precio_contado       Float?
-  precio_debito        Float?
-  precio_regular       Float?
-  stock_disponible     Int
-  subrubro             Int
-  imagen_url           String?
-  fecha_modificacion   DateTime?
-  fecha_compra         DateTime?
-  createdAt            DateTime  @default(now())
-  updatedAt            DateTime  @default(now()) @updatedAt
+  id                  Int       @id @default(autoincrement())
+  codigo              Int       @unique
+  nombre              String
+  talla               String?
+  color               String?
+  marca_descripcion   String?
+  rubro               String?
+  subrubro            Int?      // <- Agregar el ?
+  precio_lista        Float
+  stock_disponible    Int
+  imagen_url          String?
+  fecha_compra        DateTime?
+  fecha_modificacion  DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
-  @@index([rubro])
-  @@index([tipo_calzado])
-  @@index([talla])
-  @@index([precio_lista])
-  @@index([stock_disponible])
+  @@map("Producto")
 }
