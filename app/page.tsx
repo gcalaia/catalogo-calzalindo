@@ -92,8 +92,8 @@ export default function Home() {
           acc[key].variantes.push({
             id: producto.id,
             codigo: producto.codigo,
-            talla: producto.talla,
-            color: producto.color,
+            talla: producto.talla ?? null,  
+            color: producto.color ?? null,
             stock_disponible: producto.stock_disponible,
           });
           
