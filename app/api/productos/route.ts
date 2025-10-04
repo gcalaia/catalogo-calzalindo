@@ -6,43 +6,39 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     
     const search = searchParams.get('search') || '';
-    const subrubro = searchParams.get('subrubro') || '';
-    const proveedor = searchParams.get('proveedor') || '';
+    const rubro = searchParams.get('rubro') || '';
+    const tipoCalzado = searchParams.get('tipo_calzado') || '';
     const precioMin = searchParams.get('precioMin');
     const precioMax = searchParams.get('precioMax');
     const limit = parseInt(searchParams.get('limit') || '20');
     const offset = parseInt(searchParams.get('offset') || '0');
 
     const whereConditions: any = {
-      AND: [
-        { anio_coleccion: { in: ['2022', '2023', '2024', '2025'] } },
-        { 
-          subrubro_id: { 
-            in: [17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 
-                 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48] 
-          } 
-        }
-      ]
+      AND: []
     };
 
+    // Filtro de búsqueda
     if (search) {
       whereConditions.AND.push({
         OR: [
-          { descripcion: { contains: search, mode: 'insensitive' } },
           { nombre: { contains: search, mode: 'insensitive' } },
-          { codigo_sinonimo: { contains: search, mode: 'insensitive' } }
+          { codigo_sinonimo: { contains: search, mode: 'insensitive' } },
+          { codigo: { equals: parseInt(search) || undefined } }
         ]
       });
     }
 
-    if (subrubro) {
-      whereConditions.AND.push({ subrubro: { equals: subrubro } });
+    // Filtro por rubro
+    if (rubro) {
+      whereConditions.AND.push({ rubro: { equals: rubro } });
     }
 
-    if (proveedor) {
-      whereConditions.AND.push({ proveedor: { equals: proveedor } });
+    // Filtro por tipo de calzado
+    if (tipoCalzado) {
+      whereConditions.AND.push({ tipo_calzado: { equals: tipoCalzado } });
     }
 
+    // Filtros de precio
     if (precioMin || precioMax) {
       const precioFilter: any = {};
       if (precioMin) precioFilter.gte = parseFloat(precioMin);
@@ -50,54 +46,57 @@ export async function GET(request: Request) {
       whereConditions.AND.push({ precio_lista: precioFilter });
     }
 
+    // Si no hay filtros, quitar el AND vacío
+    const where = whereConditions.AND.length > 0 ? whereConditions : {};
+
     const [productos, total] = await Promise.all([
       prisma.producto.findMany({
-        where: whereConditions,
+        where,
         select: {
           id: true,
-          familia_id: true,
+          codigo: true,
           codigo_sinonimo: true,
-          codigo_original: true,
-          descripcion: true,
+          familia_id: true,
           nombre: true,
           color: true,
-          talle: true,
-          marca: true,
-          proveedor: true,
-          subrubro: true,
-          subrubro_id: true,
+          talla: true,
+          marca_descripcion: true,
           rubro: true,
-          anio_coleccion: true,
+          tipo_calzado: true,
+          temporada: true,
           precio_lista: true,
-          precio_promocion: true,
-          precio_outlet: true,
-          imagen_principal: true,
+          precio_contado: true,
+          precio_debito: true,
+          precio_credito: true,
+          imagen_url: true,
           stock_disponible: true,
-          fecha_actualizacion: true
+          fecha_compra: true,
+          fecha_modificacion: true
         },
         orderBy: [
           { familia_id: 'asc' },
           { color: 'asc' },
-          { talle: 'asc' }
+          { talla: 'asc' }
         ],
         skip: offset,
         take: limit
       }),
-      prisma.producto.count({ where: whereConditions })
+      prisma.producto.count({ where })
     ]);
 
-    const [subrubros, proveedores] = await Promise.all([
+    // Obtener filtros disponibles
+    const [rubros, tiposCalzado] = await Promise.all([
       prisma.producto.groupBy({
-        by: ['subrubro'],
-        where: whereConditions,
-        _count: { subrubro: true },
-        orderBy: { subrubro: 'asc' }
+        by: ['rubro'],
+        where,
+        _count: { rubro: true },
+        orderBy: { rubro: 'asc' }
       }),
       prisma.producto.groupBy({
-        by: ['proveedor'],
-        where: whereConditions,
-        _count: { proveedor: true },
-        orderBy: { proveedor: 'asc' }
+        by: ['tipo_calzado'],
+        where,
+        _count: { tipo_calzado: true },
+        orderBy: { tipo_calzado: 'asc' }
       })
     ]);
 
@@ -106,12 +105,12 @@ export async function GET(request: Request) {
       total,
       hasMore: offset + limit < total,
       filtros: {
-        subrubros: subrubros
-          .filter(s => s.subrubro)
-          .map(s => ({ nombre: s.subrubro, count: s._count.subrubro })),
-        proveedores: proveedores
-          .filter(p => p.proveedor)
-          .map(p => ({ nombre: p.proveedor, count: p._count.proveedor }))
+        rubros: rubros
+          .filter(r => r.rubro)
+          .map(r => ({ nombre: r.rubro, count: r._count.rubro })),
+        tipos_calzado: tiposCalzado
+          .filter(t => t.tipo_calzado)
+          .map(t => ({ nombre: t.tipo_calzado, count: t._count.tipo_calzado }))
       }
     });
 
