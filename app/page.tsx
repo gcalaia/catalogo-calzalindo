@@ -92,8 +92,8 @@ export default function Home() {
           acc[key].variantes.push({
             id: producto.id,
             codigo: producto.codigo,
-            talla: producto.talla || null,
-            color: producto.color || null,
+            talla: producto.talla === undefined ? null : producto.talla,
+            color: producto.color === undefined ? null : producto.color,
             stock_disponible: producto.stock_disponible,
           });
           
