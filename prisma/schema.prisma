@@ -13,11 +13,12 @@ model Producto {
   id                  Int       @id @default(autoincrement())
   codigo              Int       @unique
   nombre              String
+  familia_id          String?   // <- AGREGAR ESTA LÍNEA
   talla               String?
   color               String?
   marca_descripcion   String?
   rubro               String?
-  subrubro            Int?      // <- Agregar el ?
+  subrubro            Int?
   precio_lista        Float
   stock_disponible    Int
   imagen_url          String?

@@ -74,7 +74,7 @@ export default function Home() {
     const familias: Record<string, ProductoFamilia> = {};
 
     for (const producto of productos) {
-      const familiaKey = `${producto.nombre}-${producto.marca_descripcion || 'sin-marca'}`;
+      const familiaKey = producto.familia_id || `${producto.nombre}-${producto.marca_descripcion}`;
 
       if (!familias[familiaKey]) {
         familias[familiaKey] = {
