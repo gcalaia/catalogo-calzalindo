@@ -72,46 +72,46 @@ export default function Home() {
       .then((data: Producto[]) => {
         setProductos(data);
 
-                            const grupos: Record<string, ProductoAgrupado> = data.reduce(
-                    (acc, producto) => {
-                      const key = `${producto.nombre}-${producto.marca_descripcion || 'sin-marca'}`;
+        // ✅ Agrupación con tipado correcto (compatible con Vercel)
+        const grupos: Record<string, ProductoAgrupado> = data.reduce(
+          (acc, producto) => {
+            const key = `${producto.nombre}-${producto.marca_descripcion || 'sin-marca'}`;
 
-                      if (!acc[key]) {
-                        acc[key] = {
-                          nombre: producto.nombre,
-                          marca_descripcion: producto.marca_descripcion ?? null,
-                          rubro: producto.rubro ?? null,
-                          precio_contado: producto.precio_contado,
-                          precio_debito: producto.precio_debito,
-                          precio_regular: producto.precio_regular,
-                          imagen_url: producto.imagen_url ?? null,
-                          fecha_compra: producto.fecha_compra ?? null,
-                          variantes: [],
-                        };
-                      }
+            if (!acc[key]) {
+              acc[key] = {
+                nombre: producto.nombre,
+                marca_descripcion: producto.marca_descripcion ?? null,
+                rubro: producto.rubro ?? null,
+                precio_contado: producto.precio_contado,
+                precio_debito: producto.precio_debito,
+                precio_regular: producto.precio_regular,
+                imagen_url: producto.imagen_url ?? null,
+                fecha_compra: producto.fecha_compra ?? null,
+                variantes: [],
+              };
+            }
 
-                      acc[key].variantes.push({
-                        id: producto.id,
-                        codigo: producto.codigo,
-                        talla: producto.talla ?? null,
-                        color: producto.color ?? null,
-                        stock_disponible: producto.stock_disponible,
-                      });
+            acc[key].variantes.push({
+              id: producto.id,
+              codigo: producto.codigo,
+              talla: producto.talla ?? null,
+              color: producto.color ?? null,
+              stock_disponible: producto.stock_disponible,
+            });
 
-                      return acc;
-                    },
-                    {} as Record<string, ProductoAgrupado>
-                  );
+            return acc;
+          },
+          {} as Record<string, ProductoAgrupado>
+        );
 
-                  
-                   const agrupados: ProductoAgrupado[] = [];
-                    for (const k in grupos) agrupados.push(grupos[k]);
-                    setProductosAgrupados(agrupados);
-                    setFilteredProductos(agrupados);
+        // ✅ Sin Object.values para evitar el error 'unknown[]'
+        const agrupados: ProductoAgrupado[] = [];
+        for (const k in grupos) {
+          agrupados.push(grupos[k]);
+        }
 
-
-
-
+        setProductosAgrupados(agrupados);
+        setFilteredProductos(agrupados);
 
         const uniqueMarcas = [...new Set(data.map((p) => p.marca_descripcion).filter(isString))].sort();
         const uniqueTallas = [...new Set(data.map((p) => p.talla).filter(isString))].sort();
