@@ -1,5 +1,5 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
   previewFeatures = ["driverAdapters"]
 }
 
@@ -10,22 +10,34 @@ datasource db {
 }
 
 model Producto {
-  id                  Int       @id @default(autoincrement())
-  codigo              Int       @unique
-  nombre              String
-  familia_id          String?   // <- AGREGAR ESTA LÍNEA
-  talla               String?
-  color               String?
-  marca_descripcion   String?
-  rubro               String?
-  subrubro            Int?
-  precio_lista        Float
-  stock_disponible    Int
-  imagen_url          String?
-  fecha_compra        DateTime?
-  fecha_modificacion  DateTime?
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  id                 Int       @id @default(autoincrement())
+  codigo             Int       @unique
+  nombre             String
+  talla              String?
+  color              String?
+  marca_descripcion  String?
+  precio_lista       Float
+  stock_disponible   Int
+  subrubro           Int?
+  imagen_url         String?
+  createdAt          DateTime  @default(now())
+  rubro              String?
+  tipo_calzado       String?
+  temporada          String?
+  fecha_modificacion DateTime?
+  fecha_compra       DateTime?
+  precio_contado     Float?
+  precio_debito      Float?
+  precio_credito     Float?
+  updatedAt          DateTime  @default(now()) @updatedAt
+  familia_id         String?   @db.VarChar(20)
+  codigo_sinonimo    String?   @db.VarChar(100)
 
+  @@index([precio_lista])
+  @@index([rubro])
+  @@index([stock_disponible])
+  @@index([talla])
+  @@index([tipo_calzado])
+  @@index([codigo_sinonimo], map: "idx_producto_codigo_sinonimo")
   @@map("Producto")
 }
