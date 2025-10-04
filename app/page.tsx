@@ -104,13 +104,10 @@ export default function Home() {
                   );
 
                   
-                  const agrupados: ProductoAgrupado[] = [];
-                  for (const k in grupos) {
-                    agrupados.push(grupos[k]);
-                  }
-
-                  setProductosAgrupados(agrupados);
-                  setFilteredProductos(agrupados);
+                   const agrupados: ProductoAgrupado[] = [];
+                    for (const k in grupos) agrupados.push(grupos[k]);
+                    setProductosAgrupados(agrupados);
+                    setFilteredProductos(agrupados);
 
 
 
