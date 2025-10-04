@@ -1,5 +1,9 @@
 import { NextResponse } from 'next/server';
+<<<<<<< HEAD
 import { prisma } from '@/lib/prisma';
+=======
+import { prisma } from '@/lib/prisma'
+>>>>>>> ac98e3e4092eb86ce32d67e4ce6fb8478c59cb13
 
 const COEFICIENTES = {
   contado: -5,
@@ -17,6 +21,11 @@ function calcularPrecios(precioBase: number) {
 }
 
 export async function GET(request: Request) {
+<<<<<<< HEAD
+=======
+
+  
+>>>>>>> ac98e3e4092eb86ce32d67e4ce6fb8478c59cb13
   try {
     const { searchParams } = new URL(request.url);
     
