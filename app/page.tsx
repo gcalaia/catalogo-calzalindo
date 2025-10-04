@@ -89,13 +89,13 @@ export default function Home() {
             };
           }
           
-          acc[key].variantes.push({
-            id: producto.id,
-            codigo: producto.codigo,
-            talla: producto.talla ?? null,  
-            color: producto.color ?? null,
-            stock_disponible: producto.stock_disponible,
-          });
+            acc[key].variantes.push({
+              id: producto.id,
+              codigo: producto.codigo,
+              talla: producto.talla ?? null,
+              color: producto.color ?? null,
+              stock_disponible: producto.stock_disponible ?? 0,
+            });
           
           return acc;
         }, {});
