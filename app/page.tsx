@@ -72,7 +72,7 @@ export default function Home() {
       .then((data: Producto[]) => {
         setProductos(data);
 
-          const grupos: Record<string, ProductoAgrupado> = data.reduce(
+            const grupos: Record<string, ProductoAgrupado> = data.reduce(
             (acc, producto) => {
               const key = `${producto.nombre}-${producto.marca_descripcion || 'sin-marca'}`;
 
@@ -107,6 +107,7 @@ export default function Home() {
 
           setProductosAgrupados(agrupados);
           setFilteredProductos(agrupados);
+
 
 
         const uniqueMarcas = [...new Set(data.map((p) => p.marca_descripcion).filter(isString))].sort();
