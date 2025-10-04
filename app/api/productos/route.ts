@@ -5,18 +5,14 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     
-    // Parámetros de búsqueda
     const search = searchParams.get('search') || '';
     const subrubro = searchParams.get('subrubro') || '';
     const proveedor = searchParams.get('proveedor') || '';
     const precioMin = searchParams.get('precioMin');
     const precioMax = searchParams.get('precioMax');
-    
-    // Paginación
     const limit = parseInt(searchParams.get('limit') || '20');
     const offset = parseInt(searchParams.get('offset') || '0');
 
-    // Construir filtros WHERE dinámicamente
     const whereConditions: any = {
       AND: [
         { anio_coleccion: { in: ['2022', '2023', '2024', '2025'] } },
@@ -29,29 +25,24 @@ export async function GET(request: Request) {
       ]
     };
 
-    // Filtro de búsqueda por texto
     if (search) {
       whereConditions.AND.push({
         OR: [
           { descripcion: { contains: search, mode: 'insensitive' } },
           { nombre: { contains: search, mode: 'insensitive' } },
-          { codigo_sinonimo: { contains: search, mode: 'insensitive' } },
-          { familia_id: { contains: search, mode: 'insensitive' } }
+          { codigo_sinonimo: { contains: search, mode: 'insensitive' } }
         ]
       });
     }
 
-    // Filtro por subrubro
     if (subrubro) {
       whereConditions.AND.push({ subrubro: { equals: subrubro } });
     }
 
-    // Filtro por proveedor
     if (proveedor) {
       whereConditions.AND.push({ proveedor: { equals: proveedor } });
     }
 
-    // Filtros de precio
     if (precioMin || precioMax) {
       const precioFilter: any = {};
       if (precioMin) precioFilter.gte = parseFloat(precioMin);
@@ -59,7 +50,6 @@ export async function GET(request: Request) {
       whereConditions.AND.push({ precio_lista: precioFilter });
     }
 
-    // Ejecutar queries en paralelo para mejor performance
     const [productos, total] = await Promise.all([
       prisma.producto.findMany({
         where: whereConditions,
@@ -96,7 +86,6 @@ export async function GET(request: Request) {
       prisma.producto.count({ where: whereConditions })
     ]);
 
-    // Obtener filtros disponibles (subrubros y proveedores únicos)
     const [subrubros, proveedores] = await Promise.all([
       prisma.producto.groupBy({
         by: ['subrubro'],
@@ -127,7 +116,7 @@ export async function GET(request: Request) {
     });
 
   } catch (error) {
-    console.error('❌ Error en API productos:', error);
+    console.error('Error en API productos:', error);
     return NextResponse.json(
       { 
         error: 'Error al obtener productos',
