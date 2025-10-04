@@ -1,140 +1,139 @@
 import { NextResponse } from 'next/server';
-<<<<<<< HEAD
 import { prisma } from '@/lib/prisma';
-=======
-import { prisma } from '@/lib/prisma'
->>>>>>> ac98e3e4092eb86ce32d67e4ce6fb8478c59cb13
-
-const COEFICIENTES = {
-  contado: -5,
-  debito: 5,
-  regular: 43,
-};
-
-function calcularPrecios(precioBase: number) {
-  const contado = Math.round(precioBase * (1 + COEFICIENTES.contado / 100));
-  const debito = Math.round(precioBase * (1 + COEFICIENTES.debito / 100));
-  const regular = Math.round(precioBase * (1 + COEFICIENTES.regular / 100));
-  const regularComercial = Math.ceil(regular / 100) * 100 - 1;
-  
-  return { contado, debito, regular: regularComercial, precioBase };
-}
 
 export async function GET(request: Request) {
-<<<<<<< HEAD
-=======
-
-  
->>>>>>> ac98e3e4092eb86ce32d67e4ce6fb8478c59cb13
   try {
     const { searchParams } = new URL(request.url);
     
-    const marca = searchParams.get('marca');
-    const talla = searchParams.get('talla');
-    const color = searchParams.get('color');
-    const search = searchParams.get('search');
-    const rubro = searchParams.get('rubro');
+    // Parámetros de búsqueda
+    const search = searchParams.get('search') || '';
+    const subrubro = searchParams.get('subrubro') || '';
+    const proveedor = searchParams.get('proveedor') || '';
+    const precioMin = searchParams.get('precioMin');
+    const precioMax = searchParams.get('precioMax');
     
     // Paginación
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '100');
-    const offset = (page - 1) * limit;
+    const limit = parseInt(searchParams.get('limit') || '20');
+    const offset = parseInt(searchParams.get('offset') || '0');
 
-    let sqlQuery = `
-      SELECT 
-        id, codigo, nombre, talla, color, 
-        marca_descripcion, rubro, precio_lista, 
-        stock_disponible, imagen_url,
-        fecha_compra, fecha_modificacion
-      FROM "Producto"
-      WHERE stock_disponible > 0
-    `;
-    
-    const params: any[] = [];
-    let paramIndex = 1;
+    // Construir filtros WHERE dinámicamente
+    const whereConditions: any = {
+      AND: [
+        { anio_coleccion: { in: ['2022', '2023', '2024', '2025'] } },
+        { 
+          subrubro_id: { 
+            in: [17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 
+                 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48] 
+          } 
+        }
+      ]
+    };
 
-    if (marca) {
-      sqlQuery += ` AND marca_descripcion = $${paramIndex}`;
-      params.push(marca);
-      paramIndex++;
-    }
-
-    if (talla) {
-      sqlQuery += ` AND talla = $${paramIndex}`;
-      params.push(talla);
-      paramIndex++;
-    }
-
-    if (color) {
-      sqlQuery += ` AND color = $${paramIndex}`;
-      params.push(color);
-      paramIndex++;
-    }
-
-    if (rubro) {
-      sqlQuery += ` AND rubro = $${paramIndex}`;
-      params.push(rubro);
-      paramIndex++;
-    }
-
+    // Filtro de búsqueda por texto
     if (search) {
-      sqlQuery += ` AND (LOWER(nombre) LIKE $${paramIndex} OR codigo::text LIKE $${paramIndex})`;
-      params.push(`%${search.toLowerCase()}%`);
-      paramIndex++;
+      whereConditions.AND.push({
+        OR: [
+          { descripcion: { contains: search, mode: 'insensitive' } },
+          { nombre: { contains: search, mode: 'insensitive' } },
+          { codigo_sinonimo: { contains: search, mode: 'insensitive' } },
+          { familia_id: { contains: search, mode: 'insensitive' } }
+        ]
+      });
     }
 
-    // Primero obtener el total para saber cuántas páginas hay
-    const countQuery = sqlQuery.replace(
-      'SELECT id, codigo, nombre, talla, color, marca_descripcion, rubro, precio_lista, stock_disponible, imagen_url, fecha_compra, fecha_modificacion',
-      'SELECT COUNT(*) as total'
-    );
-    
-    const countResult = await prisma.$queryRawUnsafe(countQuery, ...params) as any[];
-    const total = parseInt(countResult[0].total);
+    // Filtro por subrubro
+    if (subrubro) {
+      whereConditions.AND.push({ subrubro: { equals: subrubro } });
+    }
 
-    sqlQuery += ` ORDER BY nombre ASC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
-    params.push(limit, offset);
+    // Filtro por proveedor
+    if (proveedor) {
+      whereConditions.AND.push({ proveedor: { equals: proveedor } });
+    }
 
-    const productos = await prisma.$queryRawUnsafe(sqlQuery, ...params);
+    // Filtros de precio
+    if (precioMin || precioMax) {
+      const precioFilter: any = {};
+      if (precioMin) precioFilter.gte = parseFloat(precioMin);
+      if (precioMax) precioFilter.lte = parseFloat(precioMax);
+      whereConditions.AND.push({ precio_lista: precioFilter });
+    }
 
-    const productosConPrecios = (productos as any[]).map((p: any) => {
-      const precios = calcularPrecios(p.precio_lista);
-      
-      return {
-        id: p.id,
-        codigo: p.codigo,
-        nombre: p.nombre,
-        talla: (!p.talla || p.talla === 'null' || p.talla === '') ? null : p.talla,
-        color: (!p.color || p.color === 'null' || p.color === '' || p.color.startsWith('#')) ? null : p.color,
-        marca_descripcion: p.marca_descripcion,
-        rubro: p.rubro,
-        stock_disponible: p.stock_disponible,
-        imagen_url: p.imagen_url,
-        precio_lista: precios.precioBase,
-        precio_contado: precios.contado,
-        precio_debito: precios.debito,
-        precio_regular: precios.regular,
-        fecha_compra: p.fecha_compra ? new Date(p.fecha_compra).toISOString() : null,
-        fecha_modificacion: p.fecha_modificacion ? new Date(p.fecha_modificacion).toISOString() : null,
-      };
-    });
+    // Ejecutar queries en paralelo para mejor performance
+    const [productos, total] = await Promise.all([
+      prisma.producto.findMany({
+        where: whereConditions,
+        select: {
+          id: true,
+          familia_id: true,
+          codigo_sinonimo: true,
+          codigo_original: true,
+          descripcion: true,
+          nombre: true,
+          color: true,
+          talle: true,
+          marca: true,
+          proveedor: true,
+          subrubro: true,
+          subrubro_id: true,
+          rubro: true,
+          anio_coleccion: true,
+          precio_lista: true,
+          precio_promocion: true,
+          precio_outlet: true,
+          imagen_principal: true,
+          stock_disponible: true,
+          fecha_actualizacion: true
+        },
+        orderBy: [
+          { familia_id: 'asc' },
+          { color: 'asc' },
+          { talle: 'asc' }
+        ],
+        skip: offset,
+        take: limit
+      }),
+      prisma.producto.count({ where: whereConditions })
+    ]);
+
+    // Obtener filtros disponibles (subrubros y proveedores únicos)
+    const [subrubros, proveedores] = await Promise.all([
+      prisma.producto.groupBy({
+        by: ['subrubro'],
+        where: whereConditions,
+        _count: { subrubro: true },
+        orderBy: { subrubro: 'asc' }
+      }),
+      prisma.producto.groupBy({
+        by: ['proveedor'],
+        where: whereConditions,
+        _count: { proveedor: true },
+        orderBy: { proveedor: 'asc' }
+      })
+    ]);
 
     return NextResponse.json({
-      productos: productosConPrecios,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-        hasMore: page < Math.ceil(total / limit)
+      productos,
+      total,
+      hasMore: offset + limit < total,
+      filtros: {
+        subrubros: subrubros
+          .filter(s => s.subrubro)
+          .map(s => ({ nombre: s.subrubro, count: s._count.subrubro })),
+        proveedores: proveedores
+          .filter(p => p.proveedor)
+          .map(p => ({ nombre: p.proveedor, count: p._count.proveedor }))
       }
     });
-    
+
   } catch (error) {
-    console.error('Error en API:', error);
-    return NextResponse.json({ 
-      error: 'Error al cargar productos',
-      details: error instanceof Error ? error.message : String(error)
-    }, { status: 500 });
+    console.error('❌ Error en API productos:', error);
+    return NextResponse.json(
+      { 
+        error: 'Error al obtener productos',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
+      { status: 500 }
+    );
   }
 }
