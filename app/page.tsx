@@ -41,6 +41,8 @@ interface ProductoAgrupado {
   }>;
 }
 
+const isString = (v: unknown): v is string => typeof v === 'string' && v.length > 0;
+
 export default function Home() {
   const [productos, setProductos] = useState<Producto[]>([]);
   const [productosAgrupados, setProductosAgrupados] = useState<ProductoAgrupado[]>([]);
@@ -63,70 +65,69 @@ export default function Home() {
 
   useEffect(() => {
     fetch('/api/productos')
-      .then(res => {
-        if (!res.ok) {
-          throw new Error(`Error ${res.status}: ${res.statusText}`);
-        }
+      .then((res) => {
+        if (!res.ok) throw new Error(`Error ${res.status}: ${res.statusText}`);
         return res.json();
       })
-      .then(data => {
+      .then((data: Producto[]) => {
         setProductos(data);
-        
-        const grupos = data.reduce((acc: Record<string, ProductoAgrupado>, producto: Producto) => {
+
+        const grupos = data.reduce<Record<string, ProductoAgrupado>>((acc, producto) => {
           const key = `${producto.nombre}-${producto.marca_descripcion || 'sin-marca'}`;
-          
+
           if (!acc[key]) {
             acc[key] = {
               nombre: producto.nombre,
-              marca_descripcion: producto.marca_descripcion,
-              rubro: producto.rubro,
+              marca_descripcion: producto.marca_descripcion ?? null,
+              rubro: producto.rubro ?? null,
               precio_contado: producto.precio_contado,
               precio_debito: producto.precio_debito,
               precio_regular: producto.precio_regular,
-              imagen_url: producto.imagen_url,
-              fecha_compra: producto.fecha_compra,
+              imagen_url: producto.imagen_url ?? null,
+              fecha_compra: producto.fecha_compra ?? null,
               variantes: [],
             };
           }
-          
+
           acc[key].variantes.push({
             id: producto.id,
             codigo: producto.codigo,
-            talla: producto.talla ? producto.talla : null,
-            color: producto.color ? producto.color : null,
+            talla: producto.talla ?? null,
+            color: producto.color ?? null,
             stock_disponible: producto.stock_disponible,
           });
-          
+
           return acc;
         }, {});
 
-        const agrupados = Object.values(grupos);
+        const agrupados: ProductoAgrupado[] = Object.values(grupos);
+
         setProductosAgrupados(agrupados);
         setFilteredProductos(agrupados);
-        
-        const uniqueMarcas = [...new Set(data.map((p: Producto) => p.marca_descripcion).filter(Boolean))].sort();
-        const uniqueTallas = [...new Set(data.map((p: Producto) => p.talla).filter(Boolean))].sort();
-        const uniqueColores = [...new Set(data.map((p: Producto) => p.color).filter(Boolean))].sort();
-        const uniqueRubros = [...new Set(data.map((p: Producto) => p.rubro).filter(Boolean))].sort();
-        
-        setMarcas(uniqueMarcas as string[]);
-        setTallas(uniqueTallas as string[]);
-        setColores(uniqueColores as string[]);
-        setRubros(uniqueRubros as string[]);
-        
+
+        const uniqueMarcas = [...new Set(data.map((p) => p.marca_descripcion).filter(isString))].sort();
+        const uniqueTallas = [...new Set(data.map((p) => p.talla).filter(isString))].sort();
+        const uniqueColores = [...new Set(data.map((p) => p.color).filter(isString))].sort();
+        const uniqueRubros = [...new Set(data.map((p) => p.rubro).filter(isString))].sort();
+
+        setMarcas(uniqueMarcas);
+        setTallas(uniqueTallas);
+        setColores(uniqueColores);
+        setRubros(uniqueRubros);
+
         setLoading(false);
       })
-      .catch(err => {
+      .catch((err: Error) => {
         console.error('Error cargando productos:', err);
         setError(err.message);
         setLoading(false);
       });
   }, []);
 
-  const aplicarOrdenamiento = (productos: ProductoAgrupado[], tipo: string) => {
-    const ordenados = [...productos];
-    
-    switch(tipo) {
+  const aplicarOrdenamiento = (prods: ProductoAgrupado[], tipo: string) => {
+    const ordenados = [...prods];
+
+    switch (tipo) {
       case 'recientes':
         ordenados.sort((a, b) => {
           if (!a.fecha_compra) return 1;
@@ -150,7 +151,7 @@ export default function Home() {
       default:
         ordenados.sort((a, b) => a.nombre.localeCompare(b.nombre));
     }
-    
+
     return ordenados;
   };
 
@@ -159,30 +160,22 @@ export default function Home() {
     let filtered = productosAgrupados;
 
     if (filters.search) {
-      filtered = filtered.filter(p => 
-        p.nombre.toLowerCase().includes(filters.search.toLowerCase()) ||
-        p.variantes.some(v => v.codigo.toString().includes(filters.search))
+      filtered = filtered.filter(
+        (p) =>
+          p.nombre.toLowerCase().includes(filters.search.toLowerCase()) ||
+          p.variantes.some((v) => v.codigo.toString().includes(filters.search))
       );
     }
 
-    if (filters.rubro) {
-      filtered = filtered.filter(p => p.rubro === filters.rubro);
-    }
-
-    if (filters.marca) {
-      filtered = filtered.filter(p => p.marca_descripcion === filters.marca);
-    }
+    if (filters.rubro) filtered = filtered.filter((p) => p.rubro === filters.rubro);
+    if (filters.marca) filtered = filtered.filter((p) => p.marca_descripcion === filters.marca);
 
     if (filters.talla) {
-      filtered = filtered.filter(p => 
-        p.variantes.some(v => v.talla === filters.talla)
-      );
+      filtered = filtered.filter((p) => p.variantes.some((v) => v.talla === filters.talla));
     }
 
     if (filters.color) {
-      filtered = filtered.filter(p => 
-        p.variantes.some(v => v.color === filters.color)
-      );
+      filtered = filtered.filter((p) => p.variantes.some((v) => v.color === filters.color));
     }
 
     filtered = aplicarOrdenamiento(filtered, ordenamiento);
@@ -190,45 +183,37 @@ export default function Home() {
   };
 
   useEffect(() => {
-    const handleOrdenarEvent = (e: any) => {
-      const nuevoOrden = e.detail;
+    const handleOrdenarEvent = (e: Event) => {
+      const nuevoOrden = (e as CustomEvent<string>).detail as string;
       setOrdenamiento(nuevoOrden);
-      
+
       let filtered = productosAgrupados;
 
       if (filtrosActuales.search) {
-        filtered = filtered.filter(p => 
-          p.nombre.toLowerCase().includes(filtrosActuales.search.toLowerCase()) ||
-          p.variantes.some(v => v.codigo.toString().includes(filtrosActuales.search))
+        filtered = filtered.filter(
+          (p) =>
+            p.nombre.toLowerCase().includes(filtrosActuales.search.toLowerCase()) ||
+            p.variantes.some((v) => v.codigo.toString().includes(filtrosActuales.search))
         );
       }
 
-      if (filtrosActuales.rubro) {
-        filtered = filtered.filter(p => p.rubro === filtrosActuales.rubro);
-      }
-
-      if (filtrosActuales.marca) {
-        filtered = filtered.filter(p => p.marca_descripcion === filtrosActuales.marca);
-      }
+      if (filtrosActuales.rubro) filtered = filtered.filter((p) => p.rubro === filtrosActuales.rubro);
+      if (filtrosActuales.marca) filtered = filtered.filter((p) => p.marca_descripcion === filtrosActuales.marca);
 
       if (filtrosActuales.talla) {
-        filtered = filtered.filter(p => 
-          p.variantes.some(v => v.talla === filtrosActuales.talla)
-        );
+        filtered = filtered.filter((p) => p.variantes.some((v) => v.talla === filtrosActuales.talla));
       }
 
       if (filtrosActuales.color) {
-        filtered = filtered.filter(p => 
-          p.variantes.some(v => v.color === filtrosActuales.color)
-        );
+        filtered = filtered.filter((p) => p.variantes.some((v) => v.color === filtrosActuales.color));
       }
 
       filtered = aplicarOrdenamiento(filtered, nuevoOrden);
       setFilteredProductos(filtered);
     };
-    
-    window.addEventListener('ordenar', handleOrdenarEvent);
-    return () => window.removeEventListener('ordenar', handleOrdenarEvent);
+
+    window.addEventListener('ordenar', handleOrdenarEvent as EventListener);
+    return () => window.removeEventListener('ordenar', handleOrdenarEvent as EventListener);
   }, [filtrosActuales, productosAgrupados]);
 
   if (loading) {
@@ -245,8 +230,8 @@ export default function Home() {
         <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
         <h2 className="text-xl font-bold mb-2">Error al cargar productos</h2>
         <p className="text-gray-600">{error}</p>
-        <button 
-          onClick={() => window.location.reload()} 
+        <button
+          onClick={() => window.location.reload()}
           className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
         >
           Reintentar
@@ -267,7 +252,7 @@ export default function Home() {
       <div className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           <aside className="lg:col-span-1">
-            <Filters 
+            <Filters
               onFilterChange={handleFilterChange}
               marcas={marcas}
               tallas={tallas}
@@ -282,7 +267,7 @@ export default function Home() {
                 {filteredProductos.length} {filteredProductos.length === 1 ? 'producto' : 'productos'}
               </p>
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
               {filteredProductos.map((producto, index) => (
                 <ProductCardGrouped key={`${producto.nombre}-${index}`} {...producto} />
