@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma'
 
 const COEFICIENTES = {
   contado: -5,
@@ -17,7 +17,7 @@ function calcularPrecios(precioBase: number) {
 }
 
 export async function GET(request: Request) {
-  const prisma = new PrismaClient();
+
   
   try {
     const { searchParams } = new URL(request.url);
