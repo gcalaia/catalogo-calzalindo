@@ -73,40 +73,41 @@ export default function Home() {
         setProductos(data);
 
             const grupos: Record<string, ProductoAgrupado> = data.reduce(
-            (acc, producto) => {
-              const key = `${producto.nombre}-${producto.marca_descripcion || 'sin-marca'}`;
+  (acc, producto) => {
+    const key = `${producto.nombre}-${producto.marca_descripcion || 'sin-marca'}`;
+    if (!acc[key]) {
+      acc[key] = {
+        nombre: producto.nombre,
+        marca_descripcion: producto.marca_descripcion ?? null,
+        rubro: producto.rubro ?? null,
+        precio_contado: producto.precio_contado,
+        precio_debito: producto.precio_debito,
+        precio_regular: producto.precio_regular,
+        imagen_url: producto.imagen_url ?? null,
+        fecha_compra: producto.fecha_compra ?? null,
+        variantes: [],
+      };
+    }
+    acc[key].variantes.push({
+      id: producto.id,
+      codigo: producto.codigo,
+      talla: producto.talla ?? null,
+      color: producto.color ?? null,
+      stock_disponible: producto.stock_disponible,
+    });
+    return acc;
+  },
+  {} as Record<string, ProductoAgrupado>
+);
 
-              if (!acc[key]) {
-                acc[key] = {
-                  nombre: producto.nombre,
-                  marca_descripcion: producto.marca_descripcion ?? null,
-                  rubro: producto.rubro ?? null,
-                  precio_contado: producto.precio_contado,
-                  precio_debito: producto.precio_debito,
-                  precio_regular: producto.precio_regular,
-                  imagen_url: producto.imagen_url ?? null,
-                  fecha_compra: producto.fecha_compra ?? null,
-                  variantes: [],
-                };
-              }
+// opción A (simple)
+const agrupados = Object.values(grupos) as ProductoAgrupado[];
 
-              acc[key].variantes.push({
-                id: producto.id,
-                codigo: producto.codigo,
-                talla: producto.talla ?? null,
-                color: producto.color ?? null,
-                stock_disponible: producto.stock_disponible,
-              });
 
-              return acc;
-            },
-            {} as Record<string, ProductoAgrupado>
-          );
 
-          const agrupados = Object.values(grupos) as ProductoAgrupado[];
+setProductosAgrupados(agrupados);
+setFilteredProductos(agrupados);
 
-          setProductosAgrupados(agrupados);
-          setFilteredProductos(agrupados);
 
 
 
