@@ -27,7 +27,7 @@ export default function ProductCard({ familia }: ProductCardProps) {
   const [selectedColor, setSelectedColor] = useState(0);
 
   const varianteActual = familia.variantes[selectedColor];
-  const imageUrl = varianteActual?.imagen_url || '/placeholder-shoe.jpg';
+  const imageUrl = varianteActual?.imagen_url || 'https://placehold.co/400x400/e5e7eb/6b7280?text=Sin+Imagen';
 
   const handleWhatsApp = () => {
     const mensaje = `Hola! Me interesa el producto:\n${familia.nombre}\nMarca: ${familia.marca_descripcion}\nColor: ${varianteActual.color}\nPrecio: $${familia.precio_lista.toLocaleString()}`;
