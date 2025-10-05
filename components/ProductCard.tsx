@@ -48,29 +48,20 @@ function getColorHex(colorName: string): string {
 }
 
 function calcularPrecios(precioBase: number) {
-  // precioBase es el precio de lista (el más alto)
-  const contado = precioBase * 0.95; // -5%
-  const debito = precioBase * 1.05; // +5%
+  const contado = precioBase * 0.95;
+  const debito = precioBase * 1.05;
   
-  // Redondeo comercial
   const redondearComercial = (precio: number) => {
     return Math.ceil(precio / 100) * 100 - 1;
   };
   
   return {
-    lista: redondearComercial(precioBase),      // $9899 → $9899
-    contado: redondearComercial(contado),       // $9404 → $9499
-    debito: redondearComercial(debito),         // $10394 → $10399
-    descuento: 5
-  };
-}
-  
-   return {
     lista: redondearComercial(precioBase),
     contado: redondearComercial(contado),
     debito: redondearComercial(debito),
     descuento: 5
   };
+}
 
 export default function ProductCard({ familia }: ProductCardProps) {
   const [selectedColor, setSelectedColor] = useState(0);
@@ -82,7 +73,6 @@ export default function ProductCard({ familia }: ProductCardProps) {
   const talleSeleccionado = varianteActual?.talles.find(t => t.talla === selectedTalle);
   const precios = calcularPrecios(familia.precio_lista);
   
-  // Calcular stock total de la variante
   const stockTotal = varianteActual?.talles.reduce((sum, t) => sum + t.stock, 0) || 0;
   const esUltimasUnidades = stockTotal > 0 && stockTotal <= 3;
 
@@ -96,14 +86,11 @@ export default function ProductCard({ familia }: ProductCardProps) {
 
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow duration-300">
-      {/* Imagen con badges dinámicos */}
       <div className="relative aspect-square bg-gradient-to-br from-gray-50 to-gray-100 overflow-hidden">
-        {/* Badge de descuento */}
         <div className="absolute top-3 right-3 bg-green-500 text-white text-xs font-bold px-3 py-1.5 rounded-md shadow-lg z-10">
           -5% OFF
         </div>
         
-        {/* Badge de últimas unidades */}
         {esUltimasUnidades && (
           <div className="absolute top-3 left-3 bg-orange-500 text-white text-xs font-bold px-3 py-1.5 rounded-md shadow-lg z-10 animate-pulse">
             ¡Últimas unidades!
@@ -124,9 +111,7 @@ export default function ProductCard({ familia }: ProductCardProps) {
         />
       </div>
 
-      {/* Contenido */}
       <div className="p-4">
-        {/* Nombre y marca */}
         <h3 className="font-semibold text-gray-900 text-sm mb-1 line-clamp-2 h-10">
           {familia.nombre}
         </h3>
@@ -134,7 +119,6 @@ export default function ProductCard({ familia }: ProductCardProps) {
           <p className="text-xs text-gray-500 mb-2">{familia.marca_descripcion}</p>
         )}
 
-        {/* Precio de contado con badge integrado */}
         <div className="mb-2 bg-green-50 rounded-lg p-3 border border-green-200">
           <div className="flex items-center justify-between mb-1">
             <span className="text-xs font-medium text-green-700 uppercase">Precio Contado</span>
@@ -147,7 +131,6 @@ export default function ProductCard({ familia }: ProductCardProps) {
           </p>
         </div>
 
-        {/* Botón para mostrar más precios */}
         <button
           onClick={() => setShowPrices(!showPrices)}
           className="text-xs text-blue-600 hover:text-blue-800 mb-3 underline"
@@ -155,7 +138,6 @@ export default function ProductCard({ familia }: ProductCardProps) {
           {showPrices ? 'Ocultar precios' : 'Ver otros medios de pago'}
         </button>
 
-        {/* Tarjeta desplegable de precios */}
         {showPrices && (
           <div className="bg-gray-50 rounded p-3 mb-3 space-y-2 text-sm">
             <div className="flex justify-between">
@@ -173,7 +155,6 @@ export default function ProductCard({ familia }: ProductCardProps) {
           </div>
         )}
 
-        {/* Selector de colores */}
         {familia.variantes.length > 1 && (
           <div className="mb-3">
             <p className="text-xs text-gray-600 mb-2">
@@ -200,7 +181,6 @@ export default function ProductCard({ familia }: ProductCardProps) {
           </div>
         )}
 
-        {/* Talles disponibles */}
         {varianteActual?.talles && varianteActual.talles.length > 0 && (
           <div className="mb-3">
             <p className="text-xs text-gray-600 mb-2">Talles disponibles:</p>
@@ -225,7 +205,6 @@ export default function ProductCard({ familia }: ProductCardProps) {
           </div>
         )}
 
-        {/* Botón WhatsApp */}
         <button
           onClick={handleWhatsApp}
           className="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded transition-colors duration-200 flex items-center justify-center gap-2"
