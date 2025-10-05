@@ -23,14 +23,42 @@ interface ProductCardProps {
   };
 }
 
+// Mapeo de colores a códigos hex
+const COLOR_MAP: { [key: string]: string } = {
+  'Rojo': '#DC2626',
+  'Azul': '#2563EB',
+  'Negro': '#1F2937',
+  'Blanco': '#F3F4F6',
+  'Verde': '#16A34A',
+  'Amarillo': '#EAB308',
+  'Rosa': '#EC4899',
+  'Naranja': '#EA580C',
+  'Marrón': '#92400E',
+  'Gris': '#6B7280',
+  'Violeta': '#9333EA',
+  'Celeste': '#0EA5E9',
+  'Beige': '#D2B48C',
+  'Coral': '#FF7F50',
+  'Fucsia': '#E879F9',
+  'Sin color': '#E5E7EB'
+};
+
+function getColorHex(colorName: string): string {
+  return COLOR_MAP[colorName] || COLOR_MAP['Sin color'];
+}
+
 export default function ProductCard({ familia }: ProductCardProps) {
   const [selectedColor, setSelectedColor] = useState(0);
+  const [selectedTalle, setSelectedTalle] = useState<string | null>(null);
 
   const varianteActual = familia.variantes[selectedColor];
   const imageUrl = varianteActual?.imagen_url || 'https://placehold.co/400x400/e5e7eb/6b7280?text=Sin+Imagen';
+  const talleSeleccionado = varianteActual?.talles.find(t => t.talla === selectedTalle);
 
   const handleWhatsApp = () => {
-    const mensaje = `Hola! Me interesa el producto:\n${familia.nombre}\nMarca: ${familia.marca_descripcion}\nColor: ${varianteActual.color}\nPrecio: $${familia.precio_lista.toLocaleString()}`;
+    const talleInfo = selectedTalle ? `\nTalle: ${selectedTalle}` : '';
+    const stockInfo = talleSeleccionado ? `\nStock disponible: ${talleSeleccionado.stock}` : '';
+    const mensaje = `Hola! Me interesa el producto:\n${familia.nombre}\nMarca: ${familia.marca_descripcion}\nColor: ${varianteActual.color}${talleInfo}${stockInfo}\nPrecio: $${familia.precio_lista.toLocaleString()}`;
     const url = `https://wa.me/5491234567890?text=${encodeURIComponent(mensaje)}`;
     window.open(url, '_blank');
   };
@@ -46,7 +74,7 @@ export default function ProductCard({ familia }: ProductCardProps) {
           className="object-contain p-4"
           onError={(e) => {
             const target = e.target as HTMLImageElement;
-            target.src = '/placeholder-shoe.jpg';
+            target.src = 'https://placehold.co/400x400/e5e7eb/6b7280?text=Sin+Imagen';
           }}
         />
       </div>
@@ -54,7 +82,7 @@ export default function ProductCard({ familia }: ProductCardProps) {
       {/* Contenido */}
       <div className="p-4">
         {/* Nombre y marca */}
-        <h3 className="font-semibold text-gray-900 text-sm mb-1 line-clamp-2">
+        <h3 className="font-semibold text-gray-900 text-sm mb-1 line-clamp-2 h-10">
           {familia.nombre}
         </h3>
         {familia.marca_descripcion && (
@@ -66,7 +94,7 @@ export default function ProductCard({ familia }: ProductCardProps) {
           ${familia.precio_lista.toLocaleString()}
         </p>
 
-        {/* Selector de colores */}
+        {/* Selector de colores con círculos */}
         {familia.variantes.length > 1 && (
           <div className="mb-3">
             <p className="text-xs text-gray-600 mb-2">
@@ -76,32 +104,43 @@ export default function ProductCard({ familia }: ProductCardProps) {
               {familia.variantes.map((variante, index) => (
                 <button
                   key={index}
-                  onClick={() => setSelectedColor(index)}
-                  className={`px-3 py-1 text-xs rounded-full transition-colors ${
+                  onClick={() => {
+                    setSelectedColor(index);
+                    setSelectedTalle(null);
+                  }}
+                  className={`w-8 h-8 rounded-full border-2 transition-all ${
                     selectedColor === index
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                      ? 'border-blue-600 ring-2 ring-blue-200'
+                      : 'border-gray-300 hover:border-gray-400'
                   }`}
-                >
-                  {variante.color}
-                </button>
+                  style={{ backgroundColor: getColorHex(variante.color) }}
+                  title={variante.color}
+                />
               ))}
             </div>
           </div>
         )}
 
-        {/* Talles disponibles */}
+        {/* Talles disponibles con stock */}
         {varianteActual?.talles && varianteActual.talles.length > 0 && (
           <div className="mb-3">
             <p className="text-xs text-gray-600 mb-2">Talles disponibles:</p>
-            <div className="flex flex-wrap gap-1">
+            <div className="flex flex-wrap gap-2">
               {varianteActual.talles.map((talle, index) => (
-                <span
+                <button
                   key={index}
-                  className="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded"
+                  onClick={() => setSelectedTalle(talle.talla)}
+                  className={`px-3 py-1 text-xs rounded transition-all ${
+                    selectedTalle === talle.talla
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
                 >
                   {talle.talla}
-                </span>
+                  <span className="ml-1 text-[10px] opacity-75">
+                    ({talle.stock})
+                  </span>
+                </button>
               ))}
             </div>
           </div>
