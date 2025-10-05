@@ -46,7 +46,6 @@ export default function Home() {
   const [loadingFilters, setLoadingFilters] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  // Filtros
   const [searchTerm, setSearchTerm] = useState('');
   const [tipoCalzadoFilter, setTipoCalzadoFilter] = useState('');
   const [talleFilter, setTalleFilter] = useState('');
@@ -54,23 +53,20 @@ export default function Home() {
   const [precioMin, setPrecioMin] = useState('');
   const [precioMax, setPrecioMax] = useState('');
   
-  // Opciones disponibles
   const [tiposDisponibles, setTiposDisponibles] = useState<string[]>([]);
   const [tallesDisponibles, setTallesDisponibles] = useState<string[]>([]);
   const [marcasDisponibles, setMarcasDisponibles] = useState<string[]>([]);
 
-  // Cargar opciones de filtros al inicio
   useEffect(() => {
     fetchFiltros();
   }, []);
 
-  // Buscar productos cuando cambian los filtros
   useEffect(() => {
     const hayFiltros = searchTerm || tipoCalzadoFilter || talleFilter || marcaFilter || precioMin || precioMax;
     if (hayFiltros) {
       const timeoutId = setTimeout(() => {
         fetchProductos();
-      }, 500); // Debounce de 500ms
+      }, 500);
       return () => clearTimeout(timeoutId);
     } else {
       setFamilias([]);
@@ -220,7 +216,6 @@ export default function Home() {
             Catálogo Calzalindo
           </h1>
           
-          {/* Filtros principales */}
           <div className="bg-white rounded-lg shadow p-4 mb-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
               <input
@@ -238,7 +233,7 @@ export default function Home() {
               >
                 <option value="">Todos los tipos</option>
                 {tiposDisponibles.map(tipo => (
-                  <option key={talle} value={talle}>{talle}</option>
+                  <option key={tipo} value={tipo}>{tipo}</option>
                 ))}
               </select>
               
@@ -265,7 +260,6 @@ export default function Home() {
               </select>
             </div>
             
-            {/* Filtro de precio */}
             <div className="flex flex-wrap items-center gap-4">
               <div className="flex items-center gap-2">
                 <label className="text-sm text-gray-600">Precio desde:</label>
