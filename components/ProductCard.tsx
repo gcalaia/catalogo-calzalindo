@@ -48,13 +48,22 @@ function getColorHex(colorName: string): string {
 }
 
 function calcularPrecios(precioBase: number) {
+  // precioBase es el precio de lista (el más alto)
   const contado = precioBase * 0.95; // -5%
   const debito = precioBase * 1.05; // +5%
   
-  // Redondeo comercial para todos: 15788.42 → 15799
+  // Redondeo comercial
   const redondearComercial = (precio: number) => {
     return Math.ceil(precio / 100) * 100 - 1;
   };
+  
+  return {
+    lista: redondearComercial(precioBase),      // $9899 → $9899
+    contado: redondearComercial(contado),       // $9404 → $9499
+    debito: redondearComercial(debito),         // $10394 → $10399
+    descuento: 5
+  };
+}
   
   return {
     lista: redondearComercial(precioBase),
