@@ -41,9 +41,9 @@ interface ProductoFamilia {
 }
 
 export default function Home() {
-  const [productos, setProductos] = useState<Producto[]>([]);
   const [familias, setFamilias] = useState<ProductoFamilia[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [loadingFilters, setLoadingFilters] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
   // Filtros
@@ -59,39 +59,66 @@ export default function Home() {
   const [tallesDisponibles, setTallesDisponibles] = useState<string[]>([]);
   const [marcasDisponibles, setMarcasDisponibles] = useState<string[]>([]);
 
+  // Cargar opciones de filtros al inicio
   useEffect(() => {
-    fetchProductos();
+    fetchFiltros();
   }, []);
+
+  // Buscar productos cuando cambian los filtros
+  useEffect(() => {
+    const hayFiltros = searchTerm || tipoCalzadoFilter || talleFilter || marcaFilter || precioMin || precioMax;
+    if (hayFiltros) {
+      const timeoutId = setTimeout(() => {
+        fetchProductos();
+      }, 500); // Debounce de 500ms
+      return () => clearTimeout(timeoutId);
+    } else {
+      setFamilias([]);
+    }
+  }, [searchTerm, tipoCalzadoFilter, talleFilter, marcaFilter, precioMin, precioMax]);
+
+  const fetchFiltros = async () => {
+    try {
+      setLoadingFilters(true);
+      const response = await fetch('/api/productos?only_filters=true');
+      
+      if (!response.ok) {
+        throw new Error('Error al cargar filtros');
+      }
+
+      const data = await response.json();
+      setTiposDisponibles(data.filtros.tipos);
+      setMarcasDisponibles(data.filtros.marcas);
+      setTallesDisponibles(data.filtros.talles);
+    } catch (err) {
+      console.error('Error fetching filtros:', err);
+    } finally {
+      setLoadingFilters(false);
+    }
+  };
 
   const fetchProductos = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/productos?limit=500');
+      setError(null);
+      
+      const params = new URLSearchParams();
+      if (searchTerm) params.append('search', searchTerm);
+      if (tipoCalzadoFilter) params.append('tipo_calzado', tipoCalzadoFilter);
+      if (talleFilter) params.append('talle', talleFilter);
+      if (marcaFilter) params.append('marca', marcaFilter);
+      if (precioMin) params.append('precioMin', precioMin);
+      if (precioMax) params.append('precioMax', precioMax);
+      params.append('limit', '2000');
+      
+      const response = await fetch(`/api/productos?${params.toString()}`);
       
       if (!response.ok) {
         throw new Error('Error al cargar productos');
       }
 
       const data = await response.json();
-      setProductos(data.productos || []);
       agruparPorFamilia(data.productos || []);
-      
-      // Extraer valores únicos para filtros
-      const tipos = Array.from(new Set(
-        (data.productos || []).map((p: Producto) => p.tipo_calzado).filter(Boolean)
-      )) as string[];
-      
-      const talles = Array.from(new Set(
-        (data.productos || []).map((p: Producto) => p.talla).filter(Boolean)
-      )) as string[];
-      
-      const marcas = Array.from(new Set(
-        (data.productos || []).map((p: Producto) => p.marca_descripcion).filter(Boolean)
-      )) as string[];
-      
-      setTiposDisponibles(tipos.sort());
-      setTallesDisponibles(talles.sort((a, b) => parseFloat(a) - parseFloat(b)));
-      setMarcasDisponibles(marcas.sort());
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error desconocido');
       console.error('Error fetching productos:', err);
@@ -107,14 +134,15 @@ export default function Home() {
       const familiaKey = producto.familia_id || `${producto.codigo}`;
 
       if (!familiasMap[familiaKey]) {
-        // Limpiar nombre: quitar código y color del inicio
         const nombreLimpio = producto.nombre
           .replace(/^[\d.]+\s+(BLANCO|NEGRO|BORDÓ|BORDO|AZUL|GRIS|ROJO|VERDE|AMARILLO|ROSA|MARRÓN|MARRON|CORAL|FUCSIA|CELESTE|NARANJA|BEIGE|VIOLETA|LEOPARDO|SUELA|NUDE|ORO|PLATA|CAMEL|NATURAL)\s+/i, '')
+          .replace(/\s*\/[A-Z]+\/[A-Z]+\s*/gi, ' ')
+          .replace(/\s+/g, ' ')
           .trim();
         
         familiasMap[familiaKey] = {
           familia_id: familiaKey,
-          nombre: nombreLimpio,
+          nombre: nombreLimpio || producto.nombre,
           marca_descripcion: producto.marca_descripcion,
           rubro: producto.rubro,
           tipo_calzado: producto.tipo_calzado,
@@ -149,7 +177,6 @@ export default function Home() {
 
     const result: ProductoFamilia[] = Object.values(familiasMap);
 
-    // Ordenar talles numéricamente
     for (const familia of result) {
       for (const variante of familia.variantes) {
         variante.talles.sort((a, b) => {
@@ -172,52 +199,18 @@ export default function Home() {
     setPrecioMax('');
   };
 
-  const filteredFamilias = familias.filter(familia => {
-    const matchSearch = familia.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                       familia.marca_descripcion?.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchTipo = !tipoCalzadoFilter || familia.tipo_calzado === tipoCalzadoFilter;
-    const matchMarca = !marcaFilter || familia.marca_descripcion === marcaFilter;
-    
-    const matchTalle = !talleFilter || familia.variantes.some(v => 
-      v.talles.some(t => t.talla === talleFilter)
-    );
-    
-    const matchPrecio = (!precioMin || familia.precio_lista >= parseFloat(precioMin)) &&
-                        (!precioMax || familia.precio_lista <= parseFloat(precioMax));
-    
-    return matchSearch && matchTipo && matchMarca && matchTalle && matchPrecio;
-  });
+  const hayFiltrosActivos = searchTerm || tipoCalzadoFilter || marcaFilter || talleFilter || precioMin || precioMax;
 
-  if (loading) {
+  if (loadingFilters) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Cargando productos...</p>
+          <p className="mt-4 text-gray-600">Cargando catálogo...</p>
         </div>
       </div>
     );
   }
-
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center text-red-600">
-          <p className="text-xl font-semibold">Error al cargar productos</p>
-          <p className="mt-2">{error}</p>
-          <button
-            onClick={fetchProductos}
-            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-          >
-            Reintentar
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  const hayFiltrosActivos = searchTerm || tipoCalzadoFilter || marcaFilter || talleFilter || precioMin || precioMax;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -307,27 +300,48 @@ export default function Home() {
             </div>
           </div>
           
-          <p className="text-sm text-gray-600">
-            Mostrando {filteredFamilias.length} {filteredFamilias.length === 1 ? 'familia' : 'familias'} de productos
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {filteredFamilias.map((familia) => (
-            <ProductCard key={familia.familia_id} familia={familia} />
-          ))}
-        </div>
-
-        {filteredFamilias.length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-gray-500 text-lg">
-              No se encontraron productos que coincidan con los filtros seleccionados
+          {loading && (
+            <div className="text-center py-4">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+              <p className="mt-2 text-sm text-gray-600">Buscando productos...</p>
+            </div>
+          )}
+          
+          {!loading && hayFiltrosActivos && (
+            <p className="text-sm text-gray-600">
+              {familias.length === 0 
+                ? 'No se encontraron productos' 
+                : `Mostrando ${familias.length} ${familias.length === 1 ? 'familia' : 'familias'} de productos`}
             </p>
+          )}
+          
+          {!loading && !hayFiltrosActivos && (
+            <div className="text-center py-12 bg-white rounded-lg shadow">
+              <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <h3 className="mt-2 text-sm font-medium text-gray-900">Buscá tu calzado ideal</h3>
+              <p className="mt-1 text-sm text-gray-500">Aplicá filtros para ver los productos disponibles</p>
+            </div>
+          )}
+        </div>
+
+        {!loading && familias.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {familias.map((familia) => (
+              <ProductCard key={familia.familia_id} familia={familia} />
+            ))}
+          </div>
+        )}
+
+        {error && (
+          <div className="text-center py-12">
+            <p className="text-red-500 text-lg">{error}</p>
             <button
-              onClick={limpiarFiltros}
+              onClick={fetchProductos}
               className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
             >
-              Limpiar filtros
+              Reintentar
             </button>
           </div>
         )}
