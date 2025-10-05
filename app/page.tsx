@@ -238,7 +238,7 @@ export default function Home() {
               >
                 <option value="">Todos los tipos</option>
                 {tiposDisponibles.map(tipo => (
-                  <option key={tipo} value={tipo}>{tipo}</option>
+                  <option key={talle} value={talle}>{talle}</option>
                 ))}
               </select>
               
@@ -249,7 +249,7 @@ export default function Home() {
               >
                 <option value="">Todos los talles</option>
                 {tallesDisponibles.map(talle => (
-                  <option key={talle} value={talle}>Talle {talle}</option>
+                  <option key={talle} value={talle}>{talle}</option>
                 ))}
               </select>
               
