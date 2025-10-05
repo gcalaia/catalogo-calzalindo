@@ -13,7 +13,7 @@ interface Producto {
   talla: string | null;
   marca_descripcion: string | null;
   rubro: string | null;
-  tipo_calzado: string | null;
+  subrubro_nombre: string | null;
   precio_lista: number;
   precio_contado: number | null;
   precio_debito: number | null;
@@ -26,7 +26,7 @@ interface ProductoFamilia {
   nombre: string;
   marca_descripcion: string | null;
   rubro: string | null;
-  tipo_calzado: string | null;
+  subrubro_nombre: string | null;
   precio_lista: number;
   variantes: {
     color: string;
@@ -47,13 +47,13 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   
   const [searchTerm, setSearchTerm] = useState('');
-  const [tipoCalzadoFilter, setTipoCalzadoFilter] = useState('');
+  const [subrubroFilter, setSubrubroFilter] = useState('');
   const [talleFilter, setTalleFilter] = useState('');
   const [marcaFilter, setMarcaFilter] = useState('');
   const [precioMin, setPrecioMin] = useState('');
   const [precioMax, setPrecioMax] = useState('');
   
-  const [tiposDisponibles, setTiposDisponibles] = useState<string[]>([]);
+  const [subrubrosDisponibles, setSubrubrosDisponibles] = useState<string[]>([]);
   const [tallesDisponibles, setTallesDisponibles] = useState<string[]>([]);
   const [marcasDisponibles, setMarcasDisponibles] = useState<string[]>([]);
 
@@ -62,7 +62,7 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    const hayFiltros = searchTerm || tipoCalzadoFilter || talleFilter || marcaFilter || precioMin || precioMax;
+    const hayFiltros = searchTerm || subrubroFilter || talleFilter || marcaFilter || precioMin || precioMax;
     if (hayFiltros) {
       const timeoutId = setTimeout(() => {
         fetchProductos();
@@ -71,7 +71,7 @@ export default function Home() {
     } else {
       setFamilias([]);
     }
-  }, [searchTerm, tipoCalzadoFilter, talleFilter, marcaFilter, precioMin, precioMax]);
+  }, [searchTerm, subrubroFilter, talleFilter, marcaFilter, precioMin, precioMax]);
 
   const fetchFiltros = async () => {
     try {
@@ -83,7 +83,7 @@ export default function Home() {
       }
 
       const data = await response.json();
-      setTiposDisponibles(data.filtros.tipos);
+      setSubrubrosDisponibles(data.filtros.subrubros);
       setMarcasDisponibles(data.filtros.marcas);
       setTallesDisponibles(data.filtros.talles);
     } catch (err) {
@@ -100,7 +100,7 @@ export default function Home() {
       
       const params = new URLSearchParams();
       if (searchTerm) params.append('search', searchTerm);
-      if (tipoCalzadoFilter) params.append('tipo_calzado', tipoCalzadoFilter);
+      if (subrubroFilter) params.append('subrubro', subrubroFilter);
       if (talleFilter) params.append('talle', talleFilter);
       if (marcaFilter) params.append('marca', marcaFilter);
       if (precioMin) params.append('precioMin', precioMin);
@@ -141,7 +141,7 @@ export default function Home() {
           nombre: nombreLimpio || producto.nombre,
           marca_descripcion: producto.marca_descripcion,
           rubro: producto.rubro,
-          tipo_calzado: producto.tipo_calzado,
+          subrubro_nombre: producto.subrubro_nombre,
           precio_lista: producto.precio_lista,
           variantes: [],
         };
@@ -188,14 +188,14 @@ export default function Home() {
 
   const limpiarFiltros = () => {
     setSearchTerm('');
-    setTipoCalzadoFilter('');
+    setSubrubroFilter('');
     setTalleFilter('');
     setMarcaFilter('');
     setPrecioMin('');
     setPrecioMax('');
   };
 
-  const hayFiltrosActivos = searchTerm || tipoCalzadoFilter || marcaFilter || talleFilter || precioMin || precioMax;
+  const hayFiltrosActivos = searchTerm || subrubroFilter || marcaFilter || talleFilter || precioMin || precioMax;
 
   if (loadingFilters) {
     return (
@@ -227,13 +227,13 @@ export default function Home() {
               />
               
               <select
-                value={tipoCalzadoFilter}
-                onChange={(e) => setTipoCalzadoFilter(e.target.value)}
+                value={subrubroFilter}
+                onChange={(e) => setSubrubroFilter(e.target.value)}
                 className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="">Todos los tipos</option>
-                {tiposDisponibles.map(tipo => (
-                  <option key={tipo} value={tipo}>{tipo}</option>
+                {subrubrosDisponibles.map(subrubro => (
+                  <option key={subrubro} value={subrubro}>{subrubro}</option>
                 ))}
               </select>
               

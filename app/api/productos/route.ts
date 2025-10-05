@@ -5,15 +5,14 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     
-    // Endpoint para solo obtener opciones de filtros
     const onlyFilters = searchParams.get('only_filters') === 'true';
     
     if (onlyFilters) {
-      const [tipos, marcas, talles] = await Promise.all([
+      const [subrubros, marcas, talles] = await Promise.all([
         prisma.producto.groupBy({
-          by: ['tipo_calzado'],
-          where: { tipo_calzado: { not: null } },
-          orderBy: { tipo_calzado: 'asc' }
+          by: ['subrubro_nombre'],
+          where: { subrubro_nombre: { not: null } },
+          orderBy: { subrubro_nombre: 'asc' }
         }),
         prisma.producto.groupBy({
           by: ['marca_descripcion'],
@@ -33,16 +32,15 @@ export async function GET(request: Request) {
       
       return NextResponse.json({
         filtros: {
-          tipos: tipos.map(t => t.tipo_calzado!),
+          subrubros: subrubros.map(s => s.subrubro_nombre!),
           marcas: marcas.map(m => m.marca_descripcion!),
           talles: tallesOrdenados
         }
       });
     }
     
-    // Búsqueda normal con filtros aplicados
     const search = searchParams.get('search') || '';
-    const tipoCalzado = searchParams.get('tipo_calzado') || '';
+    const subrubro = searchParams.get('subrubro') || '';
     const talle = searchParams.get('talle') || '';
     const marca = searchParams.get('marca') || '';
     const precioMin = searchParams.get('precioMin');
@@ -63,8 +61,8 @@ export async function GET(request: Request) {
       });
     }
 
-    if (tipoCalzado) {
-      whereConditions.AND.push({ tipo_calzado: { equals: tipoCalzado } });
+    if (subrubro) {
+      whereConditions.AND.push({ subrubro_nombre: { equals: subrubro } });
     }
 
     if (marca) {
@@ -97,7 +95,7 @@ export async function GET(request: Request) {
           talla: true,
           marca_descripcion: true,
           rubro: true,
-          tipo_calzado: true,
+          subrubro_nombre: true,
           precio_lista: true,
           precio_contado: true,
           imagen_url: true,
