@@ -32,6 +32,7 @@ model Producto {
   updatedAt          DateTime  @default(now()) @updatedAt
   familia_id         String?   @db.VarChar(20)
   codigo_sinonimo    String?   @db.VarChar(100)
+  subrubro_nombre    String?   @db.VarChar(100)
 
   @@index([precio_lista])
   @@index([rubro])
