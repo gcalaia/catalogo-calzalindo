@@ -1,101 +1,102 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
-import ProductCardFamily from '@/components/ProductCardFamily';
-import Filters, { FilterValues } from '@/components/Filters';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import ProductCard from '@/components/ProductCard';
 
 interface Producto {
   id: number;
   codigo: number;
+  codigo_sinonimo: string | null;
+  familia_id: string | null;
   nombre: string;
-  talla: string | null;
   color: string | null;
+  talla: string | null;
   marca_descripcion: string | null;
   rubro: string | null;
+  tipo_calzado: string | null;
   precio_lista: number;
-  precio_contado: number;
-  precio_debito: number;
-  precio_regular: number;
-  stock_disponible: number;
+  precio_contado: number | null;
+  precio_debito: number | null;
   imagen_url: string | null;
-  fecha_compra: string | null;
-}
-
-interface VarianteColor {
-  color: string;
-  imagen_codigo: number;
-  talles: Array<{
-    talla: string;
-    stock: number;
-    codigo: number;
-  }>;
+  stock_disponible: number;
 }
 
 interface ProductoFamilia {
+  familia_id: string;
   nombre: string;
   marca_descripcion: string | null;
   rubro: string | null;
-  precio_contado: number;
-  precio_debito: number;
-  precio_regular: number;
-  fecha_compra: string | null;
-  variantes: VarianteColor[];
+  precio_lista: number;
+  variantes: {
+    color: string;
+    imagen_url: string | null;
+    codigo: number;
+    talles: {
+      talla: string;
+      stock: number;
+      codigo: number;
+    }[];
+  }[];
 }
-
-const isString = (v: unknown): v is string => typeof v === 'string' && v.length > 0;
 
 export default function Home() {
   const [productos, setProductos] = useState<Producto[]>([]);
   const [familias, setFamilias] = useState<ProductoFamilia[]>([]);
-  const [filteredFamilias, setFilteredFamilias] = useState<ProductoFamilia[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
-  const [totalProductos, setTotalProductos] = useState(0);
-  const [ordenamiento, setOrdenamiento] = useState<string>('nombre');
-  const [filtrosActuales, setFiltrosActuales] = useState<FilterValues>({
-    search: '',
-    marca: '',
-    talla: '',
-    color: '',
-    rubro: '',
-  });
+  const [searchTerm, setSearchTerm] = useState('');
 
-  const [marcas, setMarcas] = useState<string[]>([]);
-  const [colores, setColores] = useState<string[]>([]);
-  const [rubros, setRubros] = useState<string[]>([]);
+  useEffect(() => {
+    fetchProductos();
+  }, []);
 
-  const observerTarget = useRef<HTMLDivElement>(null);
+  const fetchProductos = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('/api/productos?limit=100');
+      
+      if (!response.ok) {
+        throw new Error('Error al cargar productos');
+      }
 
-  const agruparPorFamilia = (productos: Producto[]): ProductoFamilia[] => {
-    const familias: Record<string, ProductoFamilia> = {};
+      const data = await response.json();
+      setProductos(data.productos || []);
+      agruparPorFamilia(data.productos || []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error desconocido');
+      console.error('Error fetching productos:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const agruparPorFamilia = (productos: Producto[]) => {
+    const familiasMap: { [key: string]: ProductoFamilia } = {};
 
     for (const producto of productos) {
-      const familiaKey = producto.familia_id || `${producto.nombre}-${producto.marca_descripcion}`;
+      const familiaKey = producto.familia_id || `${producto.codigo}`;
 
-      if (!familias[familiaKey]) {
-        familias[familiaKey] = {
+      if (!familiasMap[familiaKey]) {
+        familiasMap[familiaKey] = {
+          familia_id: familiaKey,
           nombre: producto.nombre,
           marca_descripcion: producto.marca_descripcion,
           rubro: producto.rubro,
-          precio_contado: producto.precio_contado,
-          precio_debito: producto.precio_debito,
-          precio_regular: producto.precio_regular,
-          fecha_compra: producto.fecha_compra,
+          precio_lista: producto.precio_lista,
           variantes: [],
         };
       }
 
-      const familia = familias[familiaKey];
-      let varianteColor = familia.variantes.find(v => v.color === (producto.color || 'Sin color'));
+      const familia = familiasMap[familiaKey];
+      let varianteColor = familia.variantes.find(
+        v => v.color === (producto.color || 'Sin color')
+      );
 
       if (!varianteColor) {
         varianteColor = {
           color: producto.color || 'Sin color',
-          imagen_codigo: producto.codigo,
+          imagen_url: producto.imagen_url,
+          codigo: producto.codigo,
           talles: [],
         };
         familia.variantes.push(varianteColor);
@@ -110,189 +111,89 @@ export default function Home() {
       }
     }
 
-    const result: ProductoFamilia[] = [];
-    for (const key in familias) {
-      // Ordenar talles numéricamente
-      for (const variante of familias[key].variantes) {
+    const result: ProductoFamilia[] = Object.values(familiasMap);
+
+    // Ordenar talles numéricamente
+    for (const familia of result) {
+      for (const variante of familia.variantes) {
         variante.talles.sort((a, b) => {
-          const numA = parseInt(a.talla);
-          const numB = parseInt(b.talla);
-          if (!isNaN(numA) && !isNaN(numB)) {
-            return numA - numB;
-          }
-          return a.talla.localeCompare(b.talla);
+          const numA = parseFloat(a.talla) || 0;
+          const numB = parseFloat(b.talla) || 0;
+          return numA - numB;
         });
       }
-      result.push(familias[key]);
     }
 
-    return result;
+    setFamilias(result);
   };
 
-  const cargarProductos = useCallback(async (pageNum: number, reset: boolean = false) => {
-    if (reset) {
-      setLoading(true);
-    } else {
-      setLoadingMore(true);
-    }
-
-    try {
-      const params = new URLSearchParams({
-        page: pageNum.toString(),
-        limit: '100',
-        ...(filtrosActuales.marca && { marca: filtrosActuales.marca }),
-        ...(filtrosActuales.color && { color: filtrosActuales.color }),
-        ...(filtrosActuales.rubro && { rubro: filtrosActuales.rubro }),
-        ...(filtrosActuales.search && { search: filtrosActuales.search }),
-      });
-
-      const res = await fetch(`/api/productos?${params}`);
-      if (!res.ok) throw new Error(`Error ${res.status}: ${res.statusText}`);
-      
-      const data = await res.json();
-      
-      const nuevosProductos = reset ? data.productos : [...productos, ...data.productos];
-      setProductos(nuevosProductos);
-      setHasMore(data.pagination.hasMore);
-      setTotalProductos(data.pagination.total);
-      
-      const familiasAgrupadas = agruparPorFamilia(nuevosProductos);
-      setFamilias(familiasAgrupadas);
-      setFilteredFamilias(familiasAgrupadas);
-      
-      if (reset) {
-        const uniqueMarcas = [...new Set(nuevosProductos.map(p => p.marca_descripcion).filter(isString))].sort();
-        const uniqueColores = [...new Set(nuevosProductos.map(p => p.color).filter(isString))].sort();
-        const uniqueRubros = [...new Set(nuevosProductos.map(p => p.rubro).filter(isString))].sort();
-        
-        setMarcas(uniqueMarcas);
-        setColores(uniqueColores);
-        setRubros(uniqueRubros);
-      }
-      
-    } catch (err) {
-      console.error('Error cargando productos:', err);
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setLoading(false);
-      setLoadingMore(false);
-    }
-  }, [productos, filtrosActuales]);
-
-  useEffect(() => {
-    setPage(1);
-    setProductos([]);
-    cargarProductos(1, true);
-  }, [filtrosActuales]);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      entries => {
-        if (entries[0].isIntersecting && hasMore && !loadingMore && !loading) {
-          const nextPage = page + 1;
-          setPage(nextPage);
-          cargarProductos(nextPage, false);
-        }
-      },
-      { threshold: 0.1 }
-    );
-
-    const currentTarget = observerTarget.current;
-    if (currentTarget) {
-      observer.observe(currentTarget);
-    }
-
-    return () => {
-      if (currentTarget) {
-        observer.unobserve(currentTarget);
-      }
-    };
-  }, [hasMore, loadingMore, loading, page, cargarProductos]);
-
-  const handleFilterChange = (filters: FilterValues) => {
-    setFiltrosActuales(filters);
-  };
+  const filteredFamilias = familias.filter(familia =>
+    familia.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    familia.marca_descripcion?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin" />
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Cargando productos...</p>
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen">
-        <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
-        <h2 className="text-xl font-bold mb-2">Error al cargar productos</h2>
-        <p className="text-gray-600">{error}</p>
-        <button
-          onClick={() => window.location.reload()}
-          className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-        >
-          Reintentar
-        </button>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center text-red-600">
+          <p className="text-xl font-semibold">Error al cargar productos</p>
+          <p className="mt-2">{error}</p>
+          <button
+            onClick={fetchProductos}
+            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          >
+            Reintentar
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow-sm">
-        <div className="container mx-auto px-4 py-6">
-          <h1 className="text-3xl font-bold">Calzalindo</h1>
-          <p className="text-gray-600 mt-1">Catálogo de productos</p>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-4">
+            Catálogo Calzalindo
+          </h1>
+          
+          <input
+            type="text"
+            placeholder="Buscar por nombre o marca..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full max-w-md px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+          
+          <p className="mt-2 text-sm text-gray-600">
+            Mostrando {filteredFamilias.length} familias de productos
+          </p>
         </div>
-      </header>
 
-      <div className="container mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          <aside className="lg:col-span-1">
-            <Filters
-              onFilterChange={handleFilterChange}
-              marcas={marcas}
-              tallas={[]}
-              colores={colores}
-              rubros={rubros}
-            />
-          </aside>
-
-          <main className="lg:col-span-3">
-            <div className="mb-4 flex items-center justify-between">
-              <p className="text-gray-600">
-                Mostrando {filteredFamilias.length} familias de productos
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-              {filteredFamilias.map((familia, index) => (
-                <ProductCardFamily key={`${familia.nombre}-${index}`} {...familia} />
-              ))}
-            </div>
-
-            <div ref={observerTarget} className="h-20 flex items-center justify-center mt-8">
-              {loadingMore && (
-                <div className="flex flex-col items-center gap-2">
-                  <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
-                  <p className="text-sm text-gray-500">Cargando más productos...</p>
-                </div>
-              )}
-            </div>
-
-            {!hasMore && filteredFamilias.length > 0 && (
-              <div className="text-center py-8">
-                <p className="text-gray-500">Has visto todos los productos disponibles</p>
-              </div>
-            )}
-
-            {filteredFamilias.length === 0 && (
-              <div className="text-center py-12">
-                <p className="text-gray-500 text-lg">No se encontraron productos</p>
-              </div>
-            )}
-          </main>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {filteredFamilias.map((familia) => (
+            <ProductCard key={familia.familia_id} familia={familia} />
+          ))}
         </div>
+
+        {filteredFamilias.length === 0 && (
+          <div className="text-center py-12">
+            <p className="text-gray-500 text-lg">
+              No se encontraron productos que coincidan con tu búsqueda
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

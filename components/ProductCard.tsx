@@ -1,116 +1,123 @@
-// components/ProductCard.tsx
-'use client'
+'use client';
 
 import { useState } from 'react';
 import Image from 'next/image';
-import { Card, CardContent, CardFooter } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { MessageCircle, ImageOff } from 'lucide-react';
 
 interface ProductCardProps {
-  codigo: number;
-  nombre: string;
-  talla?: string | null;
-  color?: string | null;
-  marca_descripcion?: string | null;
-  precio_lista: number;
-  stock_disponible: number;
-  imagen_url?: string | null;
+  familia: {
+    familia_id: string;
+    nombre: string;
+    marca_descripcion: string | null;
+    rubro: string | null;
+    precio_lista: number;
+    variantes: {
+      color: string;
+      imagen_url: string | null;
+      codigo: number;
+      talles: {
+        talla: string;
+        stock: number;
+        codigo: number;
+      }[];
+    }[];
+  };
 }
 
-export default function ProductCard({
-  codigo,
-  nombre,
-  talla,
-  color,
-  marca_descripcion,
-  precio_lista,
-  stock_disponible,
-  imagen_url,
-}: ProductCardProps) {
-  const [imageError, setImageError] = useState(false);
+export default function ProductCard({ familia }: ProductCardProps) {
+  const [selectedColor, setSelectedColor] = useState(0);
 
-  const whatsappMessage = `Hola! Me interesa el producto:\n*${nombre}*\nCódigo: ${codigo}${talla ? `\nTalla: ${talla}` : ''}${color ? `\nColor: ${color}` : ''}\nPrecio: $${precio_lista.toLocaleString('es-AR')}`;
-  const whatsappUrl = `https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_NUMBER}?text=${encodeURIComponent(whatsappMessage)}`;
+  const varianteActual = familia.variantes[selectedColor];
+  const imageUrl = varianteActual?.imagen_url || '/placeholder-shoe.jpg';
+
+  const handleWhatsApp = () => {
+    const mensaje = `Hola! Me interesa el producto:\n${familia.nombre}\nMarca: ${familia.marca_descripcion}\nColor: ${varianteActual.color}\nPrecio: $${familia.precio_lista.toLocaleString()}`;
+    const url = `https://wa.me/5491234567890?text=${encodeURIComponent(mensaje)}`;
+    window.open(url, '_blank');
+  };
 
   return (
-    <Card className="overflow-hidden hover:shadow-lg transition-shadow duration-300">
+    <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow duration-300">
+      {/* Imagen */}
       <div className="relative h-64 bg-gray-100">
-        {!imageError && imagen_url ? (
-          <Image
-            src={imagen_url}
-            alt={nombre}
-            fill
-            className="object-cover"
-            onError={() => setImageError(true)}
-            unoptimized
-          />
-        ) : (
-          <div className="flex flex-col items-center justify-center h-full text-gray-400">
-            <ImageOff className="h-16 w-16 mb-2" />
-            <span className="text-sm">Sin imagen</span>
-          </div>
-        )}
-        
-        {stock_disponible <= 5 && stock_disponible > 0 && (
-          <Badge className="absolute top-2 right-2 bg-orange-500">
-            ¡Últimas unidades!
-          </Badge>
-        )}
-        {stock_disponible === 0 && (
-          <Badge className="absolute top-2 right-2 bg-red-500">
-            Sin stock
-          </Badge>
-        )}
+        <Image
+          src={imageUrl}
+          alt={familia.nombre}
+          fill
+          className="object-contain p-4"
+          onError={(e) => {
+            const target = e.target as HTMLImageElement;
+            target.src = '/placeholder-shoe.jpg';
+          }}
+        />
       </div>
 
-      <CardContent className="p-4">
-        {marca_descripcion && (
-          <p className="text-sm text-gray-500 font-medium mb-1">
-            {marca_descripcion}
-          </p>
+      {/* Contenido */}
+      <div className="p-4">
+        {/* Nombre y marca */}
+        <h3 className="font-semibold text-gray-900 text-sm mb-1 line-clamp-2">
+          {familia.nombre}
+        </h3>
+        {familia.marca_descripcion && (
+          <p className="text-xs text-gray-500 mb-2">{familia.marca_descripcion}</p>
         )}
 
-        <h3 className="font-semibold text-lg mb-2 line-clamp-2">
-          {nombre}
-        </h3>
+        {/* Precio */}
+        <p className="text-lg font-bold text-blue-600 mb-3">
+          ${familia.precio_lista.toLocaleString()}
+        </p>
 
-        {/* Solo mostrar badges si tienen valores válidos */}
-        {(talla || color) && (
-          <div className="flex gap-2 mb-3 flex-wrap">
-            {talla && (
-              <Badge variant="outline" className="text-xs">
-                Talla {talla}
-              </Badge>
-            )}
-            {color && (
-              <Badge variant="outline" className="text-xs">
-                {color}
-              </Badge>
-            )}
+        {/* Selector de colores */}
+        {familia.variantes.length > 1 && (
+          <div className="mb-3">
+            <p className="text-xs text-gray-600 mb-2">
+              Color: {varianteActual.color}
+            </p>
+            <div className="flex gap-2 flex-wrap">
+              {familia.variantes.map((variante, index) => (
+                <button
+                  key={index}
+                  onClick={() => setSelectedColor(index)}
+                  className={`px-3 py-1 text-xs rounded-full transition-colors ${
+                    selectedColor === index
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                >
+                  {variante.color}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
-        <p className="text-2xl font-bold text-primary mb-1">
-          ${precio_lista.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-        </p>
+        {/* Talles disponibles */}
+        {varianteActual?.talles && varianteActual.talles.length > 0 && (
+          <div className="mb-3">
+            <p className="text-xs text-gray-600 mb-2">Talles disponibles:</p>
+            <div className="flex flex-wrap gap-1">
+              {varianteActual.talles.map((talle, index) => (
+                <span
+                  key={index}
+                  className="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded"
+                >
+                  {talle.talla}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
 
-        <p className="text-sm text-gray-600">
-          Stock: {stock_disponible} {stock_disponible === 1 ? 'unidad' : 'unidades'}
-        </p>
-      </CardContent>
-
-      <CardFooter className="p-4 pt-0">
-        <Button 
-          className="w-full" 
-          onClick={() => window.open(whatsappUrl, '_blank')}
-          disabled={stock_disponible === 0}
+        {/* Botón WhatsApp */}
+        <button
+          onClick={handleWhatsApp}
+          className="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded transition-colors duration-200 flex items-center justify-center gap-2"
         >
-          <MessageCircle className="mr-2 h-4 w-4" />
-          Consultar por WhatsApp
-        </Button>
-      </CardFooter>
-    </Card>
+          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.890-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
+          </svg>
+          Consultar
+        </button>
+      </div>
+    </div>
   );
 }
