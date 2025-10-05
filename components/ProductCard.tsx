@@ -23,7 +23,6 @@ interface ProductCardProps {
   };
 }
 
-// Mapeo de colores a códigos hex
 const COLOR_MAP: { [key: string]: string } = {
   'Rojo': '#DC2626',
   'Azul': '#2563EB',
@@ -40,6 +39,7 @@ const COLOR_MAP: { [key: string]: string } = {
   'Beige': '#D2B48C',
   'Coral': '#FF7F50',
   'Fucsia': '#E879F9',
+  'Bordó': '#991B1B',
   'Sin color': '#E5E7EB'
 };
 
@@ -47,34 +47,55 @@ function getColorHex(colorName: string): string {
   return COLOR_MAP[colorName] || COLOR_MAP['Sin color'];
 }
 
+function calcularPrecios(precioBase: number) {
+  const contado = Math.round(precioBase * 0.95); // -5%
+  const debito = Math.round(precioBase * 1.05); // +5%
+  
+  // Redondeo comercial: 59000 → 58999
+  const contadoComercial = Math.ceil(contado / 100) * 100 - 1;
+  
+  return {
+    lista: precioBase,
+    contado: contadoComercial,
+    debito: debito
+  };
+}
+
 export default function ProductCard({ familia }: ProductCardProps) {
   const [selectedColor, setSelectedColor] = useState(0);
   const [selectedTalle, setSelectedTalle] = useState<string | null>(null);
+  const [showPrices, setShowPrices] = useState(false);
 
   const varianteActual = familia.variantes[selectedColor];
-  const imageUrl = varianteActual?.imagen_url || 'https://placehold.co/400x400/e5e7eb/6b7280?text=Sin+Imagen';
+  const imageUrl = varianteActual?.imagen_url || 'https://placehold.co/600x600/f3f4f6/6b7280?text=Sin+Imagen';
   const talleSeleccionado = varianteActual?.talles.find(t => t.talla === selectedTalle);
+  const precios = calcularPrecios(familia.precio_lista);
 
   const handleWhatsApp = () => {
     const talleInfo = selectedTalle ? `\nTalle: ${selectedTalle}` : '';
     const stockInfo = talleSeleccionado ? `\nStock disponible: ${talleSeleccionado.stock}` : '';
-    const mensaje = `Hola! Me interesa el producto:\n${familia.nombre}\nMarca: ${familia.marca_descripcion}\nColor: ${varianteActual.color}${talleInfo}${stockInfo}\nPrecio: $${familia.precio_lista.toLocaleString()}`;
+    const mensaje = `Hola! Me interesa el producto:\n${familia.nombre}\nMarca: ${familia.marca_descripcion}\nColor: ${varianteActual.color}${talleInfo}${stockInfo}\nPrecio contado: $${precios.contado.toLocaleString()}`;
     const url = `https://wa.me/5491234567890?text=${encodeURIComponent(mensaje)}`;
     window.open(url, '_blank');
   };
 
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow duration-300">
-      {/* Imagen */}
-      <div className="relative h-64 bg-gray-100">
+      {/* Imagen con badge de descuento */}
+      <div className="relative aspect-square bg-gradient-to-br from-gray-50 to-gray-100 overflow-hidden">
+        <div className="absolute top-3 right-3 bg-green-500 text-white text-xs font-bold px-3 py-1.5 rounded-md shadow-lg z-10">
+          -5% OFF
+        </div>
         <Image
           src={imageUrl}
           alt={familia.nombre}
           fill
-          className="object-contain p-4"
+          className="object-cover hover:scale-105 transition-transform duration-300"
+          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          priority={false}
           onError={(e) => {
             const target = e.target as HTMLImageElement;
-            target.src = 'https://placehold.co/400x400/e5e7eb/6b7280?text=Sin+Imagen';
+            target.src = 'https://placehold.co/600x600/f3f4f6/6b7280?text=Sin+Imagen';
           }}
         />
       </div>
@@ -89,12 +110,41 @@ export default function ProductCard({ familia }: ProductCardProps) {
           <p className="text-xs text-gray-500 mb-2">{familia.marca_descripcion}</p>
         )}
 
-        {/* Precio */}
-        <p className="text-lg font-bold text-blue-600 mb-3">
-          ${familia.precio_lista.toLocaleString()}
-        </p>
+        {/* Precio de contado (destacado en verde) */}
+        <div className="mb-2">
+          <p className="text-2xl font-bold text-green-600">
+            ${precios.contado.toLocaleString()}
+          </p>
+          <p className="text-xs text-gray-500">Precio contado</p>
+        </div>
 
-        {/* Selector de colores con círculos */}
+        {/* Botón para mostrar más precios */}
+        <button
+          onClick={() => setShowPrices(!showPrices)}
+          className="text-xs text-blue-600 hover:text-blue-800 mb-3 underline"
+        >
+          {showPrices ? 'Ocultar precios' : 'Ver otros medios de pago'}
+        </button>
+
+        {/* Tarjeta desplegable de precios */}
+        {showPrices && (
+          <div className="bg-gray-50 rounded p-3 mb-3 space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-gray-600">Precio de lista:</span>
+              <span className="font-semibold">${precios.lista.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Débito:</span>
+              <span className="font-semibold">${precios.debito.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between border-t pt-2">
+              <span className="text-green-600 font-medium">Contado (-5%):</span>
+              <span className="font-bold text-green-600">${precios.contado.toLocaleString()}</span>
+            </div>
+          </div>
+        )}
+
+        {/* Selector de colores */}
         {familia.variantes.length > 1 && (
           <div className="mb-3">
             <p className="text-xs text-gray-600 mb-2">
@@ -121,7 +171,7 @@ export default function ProductCard({ familia }: ProductCardProps) {
           </div>
         )}
 
-        {/* Talles disponibles con stock */}
+        {/* Talles disponibles */}
         {varianteActual?.talles && varianteActual.talles.length > 0 && (
           <div className="mb-3">
             <p className="text-xs text-gray-600 mb-2">Talles disponibles:</p>
