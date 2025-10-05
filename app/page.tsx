@@ -46,7 +46,11 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [rubroFilter, setRubroFilter] = useState('');
+  const [talleFilter, setTalleFilter] = useState('');
+  const [marcaFilter, setMarcaFilter] = useState('');
   const [rubrosDisponibles, setRubrosDisponibles] = useState<string[]>([]);
+  const [tallesDisponibles, setTallesDisponibles] = useState<string[]>([]);
+  const [marcasDisponibles, setMarcasDisponibles] = useState<string[]>([]);
 
   useEffect(() => {
     fetchProductos();
@@ -87,9 +91,14 @@ export default function Home() {
       const familiaKey = producto.familia_id || `${producto.codigo}`;
 
       if (!familiasMap[familiaKey]) {
+        // Limpiar nombre: quitar código y color del inicio
+        const nombreLimpio = producto.nombre
+          .replace(/^\d+\s+(BLANCO|NEGRO|BORDÓ|BORDO|AZUL|GRIS|ROJO|VERDE|AMARILLO|ROSA|MARRÓN|MARRON|CORAL|FUCSIA|CELESTE|NARANJA|BEIGE)\s+/i, '')
+          .trim();
+        
         familiasMap[familiaKey] = {
           familia_id: familiaKey,
-          nombre: producto.nombre,
+          nombre: nombreLimpio,
           marca_descripcion: producto.marca_descripcion,
           rubro: producto.rubro,
           precio_lista: producto.precio_lista,
