@@ -48,16 +48,19 @@ function getColorHex(colorName: string): string {
 }
 
 function calcularPrecios(precioBase: number) {
-  const contado = Math.round(precioBase * 0.95); // -5%
-  const debito = Math.round(precioBase * 1.05); // +5%
+  const contado = precioBase * 0.95; // -5%
+  const debito = precioBase * 1.05; // +5%
   
-  // Redondeo comercial: 59000 → 58999
-  const contadoComercial = Math.ceil(contado / 100) * 100 - 1;
+  // Redondeo comercial para todos: 15788.42 → 15799
+  const redondearComercial = (precio: number) => {
+    return Math.ceil(precio / 100) * 100 - 1;
+  };
   
   return {
-    lista: precioBase,
-    contado: contadoComercial,
-    debito: debito
+    lista: redondearComercial(precioBase),
+    contado: redondearComercial(contado),
+    debito: redondearComercial(debito),
+    descuento: 5
   };
 }
 
@@ -70,6 +73,10 @@ export default function ProductCard({ familia }: ProductCardProps) {
   const imageUrl = varianteActual?.imagen_url || 'https://placehold.co/600x600/f3f4f6/6b7280?text=Sin+Imagen';
   const talleSeleccionado = varianteActual?.talles.find(t => t.talla === selectedTalle);
   const precios = calcularPrecios(familia.precio_lista);
+  
+  // Calcular stock total de la variante
+  const stockTotal = varianteActual?.talles.reduce((sum, t) => sum + t.stock, 0) || 0;
+  const esUltimasUnidades = stockTotal > 0 && stockTotal <= 3;
 
   const handleWhatsApp = () => {
     const talleInfo = selectedTalle ? `\nTalle: ${selectedTalle}` : '';
@@ -81,11 +88,20 @@ export default function ProductCard({ familia }: ProductCardProps) {
 
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow duration-300">
-      {/* Imagen con badge de descuento */}
+      {/* Imagen con badges dinámicos */}
       <div className="relative aspect-square bg-gradient-to-br from-gray-50 to-gray-100 overflow-hidden">
+        {/* Badge de descuento */}
         <div className="absolute top-3 right-3 bg-green-500 text-white text-xs font-bold px-3 py-1.5 rounded-md shadow-lg z-10">
           -5% OFF
         </div>
+        
+        {/* Badge de últimas unidades */}
+        {esUltimasUnidades && (
+          <div className="absolute top-3 left-3 bg-orange-500 text-white text-xs font-bold px-3 py-1.5 rounded-md shadow-lg z-10 animate-pulse">
+            ¡Últimas unidades!
+          </div>
+        )}
+        
         <Image
           src={imageUrl}
           alt={familia.nombre}
@@ -110,12 +126,17 @@ export default function ProductCard({ familia }: ProductCardProps) {
           <p className="text-xs text-gray-500 mb-2">{familia.marca_descripcion}</p>
         )}
 
-        {/* Precio de contado (destacado en verde) */}
-        <div className="mb-2">
+        {/* Precio de contado con badge integrado */}
+        <div className="mb-2 bg-green-50 rounded-lg p-3 border border-green-200">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-xs font-medium text-green-700 uppercase">Precio Contado</span>
+            <span className="bg-green-500 text-white text-xs font-bold px-2 py-0.5 rounded">
+              -{precios.descuento}% OFF
+            </span>
+          </div>
           <p className="text-2xl font-bold text-green-600">
             ${precios.contado.toLocaleString()}
           </p>
-          <p className="text-xs text-gray-500">Precio contado</p>
         </div>
 
         {/* Botón para mostrar más precios */}
