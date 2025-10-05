@@ -65,13 +65,12 @@ function calcularPrecios(precioBase: number) {
   };
 }
   
-  return {
+   return {
     lista: redondearComercial(precioBase),
     contado: redondearComercial(contado),
     debito: redondearComercial(debito),
     descuento: 5
   };
-}
 
 export default function ProductCard({ familia }: ProductCardProps) {
   const [selectedColor, setSelectedColor] = useState(0);
