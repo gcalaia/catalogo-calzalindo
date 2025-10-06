@@ -15,10 +15,8 @@ interface Producto {
   rubro: string | null;
   subrubro_nombre: string | null;
   precio_lista: number;
-  precio_contado: number | null;
-  precio_debito: number | null;
-  imagen_url: string | null;
   stock_disponible: number;
+  imagen_url: string | null;
 }
 
 interface ProductoFamilia {
@@ -40,6 +38,22 @@ interface ProductoFamilia {
   }[];
 }
 
+const RUBROS = [
+  { value: 'all', label: 'Todos' },
+  { value: 'DAMAS', label: 'Damas' },
+  { value: 'HOMBRES', label: 'Hombres' },
+  { value: 'NIÑOS', label: 'Niños' },
+  { value: 'NIÑAS', label: 'Niñas' },
+];
+
+const ORDEN_OPTIONS = [
+  { value: 'stock_asc', label: 'Stock bajo primero' },
+  { value: 'nuevos', label: 'Más nuevos' },
+  { value: 'precio_asc', label: 'Menor precio' },
+  { value: 'precio_desc', label: 'Mayor precio' },
+  { value: 'nombre', label: 'Alfabético' },
+];
+
 export default function Home() {
   const [familias, setFamilias] = useState<ProductoFamilia[]>([]);
   const [loading, setLoading] = useState(false);
@@ -47,11 +61,13 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   
   const [searchTerm, setSearchTerm] = useState('');
+  const [rubroFilter, setRubroFilter] = useState('all');
   const [subrubroFilter, setSubrubroFilter] = useState('');
   const [talleFilter, setTalleFilter] = useState('');
   const [marcaFilter, setMarcaFilter] = useState('');
   const [precioMin, setPrecioMin] = useState('');
   const [precioMax, setPrecioMax] = useState('');
+  const [ordenFilter, setOrdenFilter] = useState('stock_asc');
   
   const [subrubrosDisponibles, setSubrubrosDisponibles] = useState<string[]>([]);
   const [tallesDisponibles, setTallesDisponibles] = useState<string[]>([]);
@@ -62,7 +78,7 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    const hayFiltros = searchTerm || subrubroFilter || talleFilter || marcaFilter || precioMin || precioMax;
+    const hayFiltros = searchTerm || rubroFilter !== 'all' || subrubroFilter || talleFilter || marcaFilter || precioMin || precioMax;
     if (hayFiltros) {
       const timeoutId = setTimeout(() => {
         fetchProductos();
@@ -71,7 +87,7 @@ export default function Home() {
     } else {
       setFamilias([]);
     }
-  }, [searchTerm, subrubroFilter, talleFilter, marcaFilter, precioMin, precioMax]);
+  }, [searchTerm, rubroFilter, subrubroFilter, talleFilter, marcaFilter, precioMin, precioMax, ordenFilter]);
 
   const fetchFiltros = async () => {
     try {
@@ -100,11 +116,13 @@ export default function Home() {
       
       const params = new URLSearchParams();
       if (searchTerm) params.append('search', searchTerm);
+      if (rubroFilter !== 'all') params.append('rubro', rubroFilter);
       if (subrubroFilter) params.append('subrubro', subrubroFilter);
       if (talleFilter) params.append('talle', talleFilter);
       if (marcaFilter) params.append('marca', marcaFilter);
       if (precioMin) params.append('precioMin', precioMin);
       if (precioMax) params.append('precioMax', precioMax);
+      if (ordenFilter) params.append('orden', ordenFilter);
       params.append('limit', '2000');
       
       const response = await fetch(`/api/productos?${params.toString()}`);
@@ -188,6 +206,7 @@ export default function Home() {
 
   const limpiarFiltros = () => {
     setSearchTerm('');
+    setRubroFilter('all');
     setSubrubroFilter('');
     setTalleFilter('');
     setMarcaFilter('');
@@ -195,7 +214,7 @@ export default function Home() {
     setPrecioMax('');
   };
 
-  const hayFiltrosActivos = searchTerm || subrubroFilter || marcaFilter || talleFilter || precioMin || precioMax;
+  const hayFiltrosActivos = searchTerm || rubroFilter !== 'all' || subrubroFilter || marcaFilter || talleFilter || precioMin || precioMax;
 
   if (loadingFilters) {
     return (
@@ -216,16 +235,41 @@ export default function Home() {
             Catálogo Calzalindo
           </h1>
           
-          <div className="bg-white rounded-lg shadow p-4 mb-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-              <input
-                type="text"
-                placeholder="Buscar producto..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-              
+          {/* Búsqueda */}
+          <div className="mb-4">
+            <input
+              type="text"
+              placeholder="Buscar producto, marca o tipo..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg"
+            />
+          </div>
+
+          {/* Tabs de Rubro */}
+          <div className="bg-white rounded-lg shadow mb-4 overflow-x-auto">
+            <div className="flex border-b">
+              {RUBROS.map((rubro) => (
+                <button
+                  key={rubro.value}
+                  onClick={() => setRubroFilter(rubro.value)}
+                  className={`
+                    px-6 py-4 font-medium transition-colors whitespace-nowrap
+                    ${rubroFilter === rubro.value
+                      ? 'border-b-2 border-blue-600 text-blue-600'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                    }
+                  `}
+                >
+                  {rubro.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Filtros */}
+          <div className="bg-white rounded-lg shadow p-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
               <select
                 value={subrubroFilter}
                 onChange={(e) => setSubrubroFilter(e.target.value)}
@@ -234,17 +278,6 @@ export default function Home() {
                 <option value="">Todos los tipos</option>
                 {subrubrosDisponibles.map(subrubro => (
                   <option key={subrubro} value={subrubro}>{subrubro}</option>
-                ))}
-              </select>
-              
-              <select
-                value={talleFilter}
-                onChange={(e) => setTalleFilter(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">Todos los talles</option>
-                {tallesDisponibles.map(talle => (
-                  <option key={talle} value={talle}>{talle}</option>
                 ))}
               </select>
               
@@ -258,31 +291,49 @@ export default function Home() {
                   <option key={marca} value={marca}>{marca}</option>
                 ))}
               </select>
+              
+              <select
+                value={talleFilter}
+                onChange={(e) => setTalleFilter(e.target.value)}
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="">Todos los talles</option>
+                {tallesDisponibles.map(talle => (
+                  <option key={talle} value={talle}>{talle}</option>
+                ))}
+              </select>
+
+              <input
+                type="number"
+                placeholder="Precio mínimo"
+                value={precioMin}
+                onChange={(e) => setPrecioMin(e.target.value)}
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              
+              <input
+                type="number"
+                placeholder="Precio máximo"
+                value={precioMax}
+                onChange={(e) => setPrecioMax(e.target.value)}
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
             </div>
             
-            <div className="flex flex-wrap items-center gap-4">
-              <div className="flex items-center gap-2">
-                <label className="text-sm text-gray-600">Precio desde:</label>
-                <input
-                  type="number"
-                  placeholder="Min"
-                  value={precioMin}
-                  onChange={(e) => setPrecioMin(e.target.value)}
-                  className="w-28 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <label className="text-sm text-gray-600">Ordenar por:</label>
+                <select
+                  value={ordenFilter}
+                  onChange={(e) => setOrdenFilter(e.target.value)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  {ORDEN_OPTIONS.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
               </div>
-              
-              <div className="flex items-center gap-2">
-                <label className="text-sm text-gray-600">hasta:</label>
-                <input
-                  type="number"
-                  placeholder="Max"
-                  value={precioMax}
-                  onChange={(e) => setPrecioMax(e.target.value)}
-                  className="w-28 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-              
+
               {hayFiltrosActivos && (
                 <button
                   onClick={limpiarFiltros}
@@ -302,7 +353,7 @@ export default function Home() {
           )}
           
           {!loading && hayFiltrosActivos && (
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-gray-600 mt-4">
               {familias.length === 0 
                 ? 'No se encontraron productos' 
                 : `Mostrando ${familias.length} ${familias.length === 1 ? 'familia' : 'familias'} de productos`}
@@ -310,12 +361,12 @@ export default function Home() {
           )}
           
           {!loading && !hayFiltrosActivos && (
-            <div className="text-center py-12 bg-white rounded-lg shadow">
+            <div className="text-center py-12 bg-white rounded-lg shadow mt-4">
               <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
               <h3 className="mt-2 text-sm font-medium text-gray-900">Buscá tu calzado ideal</h3>
-              <p className="mt-1 text-sm text-gray-500">Aplicá filtros para ver los productos disponibles</p>
+              <p className="mt-1 text-sm text-gray-500">Seleccioná un rubro o aplicá filtros para ver los productos</p>
             </div>
           )}
         </div>

@@ -8,22 +8,34 @@ export async function GET(request: NextRequest) {
     const sp = request.nextUrl.searchParams;
     const onlyFilters = sp.get('only_filters') === 'true';
 
+    // Rubros válidos (excluir legacy)
+    const RUBROS_VALIDOS = ['DAMAS', 'HOMBRES', 'NIÑOS', 'NIÑAS', 'UNISEX'];
+
     // ── Solo filtros
     if (onlyFilters) {
       const [subrubros, marcas, talles] = await Promise.all([
         prisma.producto.findMany({
           select: { subrubro_nombre: true },
-          where: { subrubro_nombre: { not: null } },
+          where: { 
+            subrubro_nombre: { not: null },
+            rubro: { in: RUBROS_VALIDOS }  // ← Filtrar rubros legacy
+          },
           distinct: ['subrubro_nombre'],
         }),
         prisma.producto.findMany({
           select: { marca_descripcion: true },
-          where: { marca_descripcion: { not: null } },
+          where: { 
+            marca_descripcion: { not: null },
+            rubro: { in: RUBROS_VALIDOS }
+          },
           distinct: ['marca_descripcion'],
         }),
         prisma.producto.findMany({
           select: { talla: true },
-          where: { talla: { not: null } },
+          where: { 
+            talla: { not: null },
+            rubro: { in: RUBROS_VALIDOS }
+          },
           distinct: ['talla'],
         }),
       ]);
@@ -45,15 +57,21 @@ export async function GET(request: NextRequest) {
 
     // ── Parámetros
     const search     = sp.get('search') || '';
+    const rubro      = sp.get('rubro');  // ← Agregar filtro de rubro
     const subrubro   = sp.get('subrubro');
     const marca      = sp.get('marca');
     const talle      = sp.get('talle');
     const precioMin  = sp.get('precioMin');
     const precioMax  = sp.get('precioMax');
+    const orden      = sp.get('orden') || 'stock_asc';  // ← Agregar ordenamiento
     const limit      = parseInt(sp.get('limit') || '2000', 10);
 
     // ── Filtros
-    const where: any = { stock_disponible: { gt: 0 } };
+    const where: any = { 
+      stock_disponible: { gt: 0 },
+      rubro: { in: RUBROS_VALIDOS }  // ← Siempre filtrar legacy
+    };
+
     if (search) {
       where.OR = [
         { nombre: { contains: search, mode: 'insensitive' } },
@@ -61,6 +79,11 @@ export async function GET(request: NextRequest) {
         { subrubro_nombre: { contains: search, mode: 'insensitive' } },
       ];
     }
+
+    if (rubro && rubro !== 'all') {
+      where.rubro = rubro;  // ← Filtro específico por tab
+    }
+
     if (subrubro) where.subrubro_nombre = subrubro;
     if (marca) where.marca_descripcion = marca;
     if (talle) where.talla = talle;
@@ -71,10 +94,48 @@ export async function GET(request: NextRequest) {
       if (precioMax) where.precio_lista.lte = parseFloat(precioMax);
     }
 
+    // ── Ordenamiento dinámico
+    let orderBy: any[] = [];
+    
+    switch (orden) {
+      case 'stock_asc':
+        orderBy = [
+          { stock_disponible: 'asc' },
+          { createdAt: 'desc' }
+        ];
+        break;
+      case 'nuevos':
+        orderBy = [
+          { createdAt: 'desc' },
+          { stock_disponible: 'asc' }
+        ];
+        break;
+      case 'precio_asc':
+        orderBy = [
+          { precio_lista: 'asc' },
+          { stock_disponible: 'asc' }
+        ];
+        break;
+      case 'precio_desc':
+        orderBy = [
+          { precio_lista: 'desc' },
+          { stock_disponible: 'asc' }
+        ];
+        break;
+      case 'nombre':
+        orderBy = [{ nombre: 'asc' }];
+        break;
+      default:
+        orderBy = [
+          { stock_disponible: 'asc' },
+          { createdAt: 'desc' }
+        ];
+    }
+
     // ── Query
     const productos = await prisma.producto.findMany({
       where,
-      orderBy: [{ createdAt: 'desc' }, { nombre: 'asc' }],
+      orderBy,
       take: limit,
     });
 
@@ -87,8 +148,8 @@ export async function GET(request: NextRequest) {
         precio_lista_redondeado: lista,
         precio_contado: contado,
         precio_debito: debito,
-        descuento_contado_pct: offContado, // ej: 33
-        descuento_debito_pct: offDebito,   // ej: 27
+        descuento_contado_pct: offContado,
+        descuento_debito_pct: offDebito,
       };
     });
 
