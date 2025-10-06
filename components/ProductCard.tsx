@@ -38,7 +38,6 @@ export default function ProductCard({ familia }: ProductCardProps) {
     varianteActual?.imagen_url ||
     'https://evirtual.calzalindo.com.ar:58000/clz_ventas/static/images/no_image.png';
 
-  // precios comerciales desde la lista de la familia
   const { lista, contado, debito, offContado, offDebito } = calcularPrecios(
     familia.precio_lista
   );
@@ -59,9 +58,7 @@ export default function ProductCard({ familia }: ProductCardProps) {
       typeof talleActual?.stock === 'number'
         ? `\nStock disponible: ${talleActual.stock}`
         : '';
-    const mensaje = `Hola! Me interesa el producto:\n${familia.nombre}\nMarca: ${familia.marca_descripcion}\nColor: ${varianteActual.color}${t}${s}\nPrecio contado: ${contado.toLocaleString(
-      'es-AR'
-    )}`;
+    const mensaje = `Hola! Me interesa el producto:\n${familia.nombre}\nMarca: ${familia.marca_descripcion}\nColor: ${varianteActual.color}${t}${s}`;
     window.open(`https://wa.me/${whatsapp}?text=${encodeURIComponent(mensaje)}`, '_blank');
   };
 
@@ -92,7 +89,6 @@ export default function ProductCard({ familia }: ProductCardProps) {
             ¡Últimas unidades!
           </div>
         )}
-
         <img
           src={
             imageError
@@ -111,9 +107,7 @@ export default function ProductCard({ familia }: ProductCardProps) {
           {familia.nombre}
         </h3>
         {familia.marca_descripcion && (
-          <p className="text-xs text-gray-500 mb-2">
-            {familia.marca_descripcion}
-          </p>
+          <p className="text-xs text-gray-500 mb-2">{familia.marca_descripcion}</p>
         )}
 
         {/* Precio principal */}
@@ -131,7 +125,7 @@ export default function ProductCard({ familia }: ProductCardProps) {
           </p>
         </div>
 
-        {/* Toggle otros medios */}
+        {/* Otros medios */}
         <button
           onClick={() => setShowPrices(!showPrices)}
           className="text-xs text-blue-600 hover:text-blue-800 mb-3 underline"
@@ -143,40 +137,26 @@ export default function ProductCard({ familia }: ProductCardProps) {
           <div className="bg-gray-50 rounded p-3 mb-3 space-y-2 text-sm">
             <div className="flex justify-between">
               <span className="text-gray-600">Precio de lista:</span>
-              <span className="font-semibold">
-                ${lista.toLocaleString('es-AR')}
-              </span>
+              <span className="font-semibold">${lista.toLocaleString('es-AR')}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">Débito (-{offDebito}%):</span>
-              <span className="font-semibold">
-                ${debito.toLocaleString('es-AR')}
-              </span>
-            </div>
-            <div className="flex justify-between border-t pt-2">
-              <span className="text-green-600 font-medium">
-                Contado (-{offContado}%):
-              </span>
-              <span className="font-bold text-green-600">
-                ${contado.toLocaleString('es-AR')}
-              </span>
+              <span className="font-semibold">${debito.toLocaleString('es-AR')}</span>
             </div>
           </div>
         )}
 
-        {/* Selector de colores */}
+        {/* Colores */}
         {familia.variantes.length > 1 && (
           <div className="mb-3">
             <div className="flex gap-2 items-center flex-wrap mb-2">
               <span className="text-xs text-gray-600">Color:</span>
-
               <div className="flex gap-2 flex-wrap">
                 {familia.variantes.map((variante, index) => {
                   const isSelected = selectedColor === index;
                   const colorStyle = getColorStyle(variante.color);
                   const hexColor = getColorHex(variante.color);
                   const isDark = isColorDark(hexColor);
-
                   return (
                     <button
                       key={index}
@@ -191,39 +171,27 @@ export default function ProductCard({ familia }: ProductCardProps) {
                           : 'ring-1 ring-gray-300 hover:scale-105'
                       }`}
                       style={colorStyle}
-                      title={variante.color}
-                      aria-label={`Seleccionar color ${variante.color}`}
                     >
                       {isSelected && (
                         <svg
-                          className={`w-4 h-4 ${
-                            isDark ? 'text-white' : 'text-gray-800'
-                          }`}
+                          className={`w-4 h-4 ${isDark ? 'text-white' : 'text-gray-800'}`}
                           fill="none"
                           strokeWidth="3"
                           stroke="currentColor"
                           viewBox="0 0 24 24"
                         >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M5 13l4 4L19 7"
-                          />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                         </svg>
                       )}
                     </button>
                   );
                 })}
               </div>
-
-              <span className="text-xs font-medium text-gray-800 capitalize">
-                {varianteActual.color.toLowerCase()}
-              </span>
             </div>
           </div>
         )}
 
-        {/* Selector de talles */}
+        {/* Talles */}
         {varianteActual?.talles?.length > 0 && (
           <div className="mb-3">
             <p className="text-xs text-gray-600 mb-2">Talles disponibles:</p>
@@ -239,9 +207,7 @@ export default function ProductCard({ familia }: ProductCardProps) {
                   }`}
                 >
                   {talle.talla}
-                  <span className="ml-1 text-[10px] opacity-75">
-                    ({talle.stock})
-                  </span>
+                  <span className="ml-1 text-[10px] opacity-75">({talle.stock})</span>
                 </button>
               ))}
             </div>
@@ -249,49 +215,34 @@ export default function ProductCard({ familia }: ProductCardProps) {
         )}
 
         {/* Botones de acción */}
-              <div className="flex justify-center gap-3 mt-4">
-                {/* Agregar a consulta */}
-                <button
-                  onClick={handleAgregar}
-                  className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-full px-5 py-2 shadow-md transition-all hover:scale-105"
-                  title="Agregar a mi consulta"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="w-5 h-5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 4v16m8-8H4"
-                    />
-                  </svg>
-                  <span className="hidden sm:inline">Agregar</span>
-                </button>
+        <div className="flex justify-center gap-3 mt-4">
+          {/* + Agregar */}
+          <button
+            onClick={handleAgregar}
+            className="flex items-center justify-center gap-2 rounded-full px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-md transition-all hover:scale-105"
+            title="Agregar a mi consulta"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            <span className="hidden sm:inline">Agregar</span>
+          </button>
 
-                {/* Consultar por WhatsApp */}
-                <button
-                  onClick={handleWhatsApp}
-                  className="flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-full px-5 py-2 shadow-md transition-all hover:scale-105"
-                  title="Consultar por WhatsApp"
-                >
-                  <svg
-                    className="w-5 h-5"
-                    fill="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" />
-                  </svg>
-                  <span className="hidden sm:inline">Consultar</span>
-                </button>
-              </div>
+          {/* WhatsApp */}
+          <button
+            onClick={handleWhatsApp}
+            className="flex items-center justify-center gap-2 rounded-full px-5 py-2 bg-green-500 hover:bg-green-600 text-white font-semibold shadow-md transition-all hover:scale-105"
+            title="Consultar por WhatsApp"
+          >
+            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347"/>
+            </svg>
+            <span className="hidden sm:inline">Consultar</span>
+          </button>
+        </div>
+      </div> {/* cierre del bloque de contenido */}
 
-
-      {/* Modal de imagen ampliada */}
+      {/* Modal imagen ampliada */}
       {showImageModal && (
         <div
           className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4"
@@ -306,21 +257,12 @@ export default function ProductCard({ familia }: ProductCardProps) {
               ×
             </button>
             <img
-              src={
-                imageError
-                  ? 'https://evirtual.calzalindo.com.ar:58000/clz_ventas/static/images/no_image.png'
-                  : imageUrl
-              }
+              src={imageError
+                ? 'https://evirtual.calzalindo.com.ar:58000/clz_ventas/static/images/no_image.png'
+                : imageUrl}
               alt={familia.nombre}
               className="w-full h-auto max-h-[85vh] object-contain rounded-lg"
-              onClick={(e) => e.stopPropagation()}
             />
-            <div className="mt-4 text-white text-center">
-              <p className="text-lg font-semibold">{familia.nombre}</p>
-              {familia.marca_descripcion && (
-                <p className="text-sm text-gray-300">{familia.marca_descripcion}</p>
-              )}
-            </div>
           </div>
         </div>
       )}
