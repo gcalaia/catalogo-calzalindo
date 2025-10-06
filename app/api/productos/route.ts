@@ -1,40 +1,49 @@
 // app/api/productos/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { calcularPrecios } from '@/lib/pricing';
 
 export async function GET(request: NextRequest) {
   try {
-    const sp = request.nextUrl.searchParams;
-    const onlyFilters = sp.get('only_filters') === 'true';
+    const searchParams = request.nextUrl.searchParams;
+    const onlyFilters = searchParams.get('only_filters') === 'true';
 
-    // Rubros válidos (excluir legacy)
-    const RUBROS_VALIDOS = ['DAMAS', 'HOMBRES', 'NIÑOS', 'NIÑAS', 'UNISEX'];
-
-    // ── Solo filtros
+    // Si solo piden filtros
     if (onlyFilters) {
+      const RUBROS_VALIDOS = ['DAMAS', 'HOMBRES', 'NIÑOS', 'NIÑAS', 'UNISEX'];
+      const rubro = searchParams.get('rubro');
+      
+      const whereFilters: any = {
+        stock_disponible: { gt: 0 },
+        rubro: { in: RUBROS_VALIDOS }
+      };
+      
+      // Si hay rubro específico, filtrar por ese rubro
+      if (rubro && rubro !== 'all') {
+        whereFilters.rubro = rubro;
+      }
+      
       const [subrubros, marcas, talles] = await Promise.all([
         prisma.producto.findMany({
           select: { subrubro_nombre: true },
           where: { 
-            subrubro_nombre: { not: null },
-            rubro: { in: RUBROS_VALIDOS }  // ← Filtrar rubros legacy
+            ...whereFilters,
+            subrubro_nombre: { not: null }
           },
           distinct: ['subrubro_nombre'],
         }),
         prisma.producto.findMany({
           select: { marca_descripcion: true },
           where: { 
-            marca_descripcion: { not: null },
-            rubro: { in: RUBROS_VALIDOS }
+            ...whereFilters,
+            marca_descripcion: { not: null }
           },
           distinct: ['marca_descripcion'],
         }),
         prisma.producto.findMany({
           select: { talla: true },
           where: { 
-            talla: { not: null },
-            rubro: { in: RUBROS_VALIDOS }
+            ...whereFilters,
+            talla: { not: null }
           },
           distinct: ['talla'],
         }),
@@ -42,34 +51,41 @@ export async function GET(request: NextRequest) {
 
       return NextResponse.json({
         filtros: {
-          subrubros: subrubros.map(s => s.subrubro_nombre!).filter(Boolean).sort(),
-          marcas: marcas.map(m => m.marca_descripcion!).filter(Boolean).sort(),
+          subrubros: subrubros
+            .map(s => s.subrubro_nombre)
+            .filter((s): s is string => s !== null)
+            .sort(),
+          marcas: marcas
+            .map(m => m.marca_descripcion)
+            .filter((m): m is string => m !== null)
+            .sort(),
           talles: talles
-            .map(t => t.talla!).filter(Boolean)
+            .map(t => t.talla)
+            .filter((t): t is string => t !== null)
             .sort((a, b) => {
-              const na = parseFloat(a), nb = parseFloat(b);
-              if (isNaN(na) || isNaN(nb)) return a.localeCompare(b);
-              return na - nb;
+              const numA = parseFloat(a);
+              const numB = parseFloat(b);
+              if (isNaN(numA) || isNaN(numB)) return a.localeCompare(b);
+              return numA - numB;
             }),
         },
       });
     }
 
-    // ── Parámetros
-    const search     = sp.get('search') || '';
-    const rubro      = sp.get('rubro');  // ← Agregar filtro de rubro
-    const subrubro   = sp.get('subrubro');
-    const marca      = sp.get('marca');
-    const talle      = sp.get('talle');
-    const precioMin  = sp.get('precioMin');
-    const precioMax  = sp.get('precioMax');
-    const orden      = sp.get('orden') || 'stock_asc';  // ← Agregar ordenamiento
-    const limit      = parseInt(sp.get('limit') || '2000', 10);
+    // Parámetros de búsqueda
+    const search = searchParams.get('search') || '';
+    const rubro = searchParams.get('rubro');
+    const subrubro = searchParams.get('subrubro');
+    const marca = searchParams.get('marca');
+    const talle = searchParams.get('talle');
+    const precioMin = searchParams.get('precioMin');
+    const precioMax = searchParams.get('precioMax');
+    const orden = searchParams.get('orden') || 'stock_asc';
+    const limit = parseInt(searchParams.get('limit') || '2000');
 
-    // ── Filtros
-    const where: any = { 
+    // Construir filtros
+    const where: any = {
       stock_disponible: { gt: 0 },
-      rubro: { in: RUBROS_VALIDOS }  // ← Siempre filtrar legacy
     };
 
     if (search) {
@@ -81,12 +97,20 @@ export async function GET(request: NextRequest) {
     }
 
     if (rubro && rubro !== 'all') {
-      where.rubro = rubro;  // ← Filtro específico por tab
+      where.rubro = rubro;
     }
 
-    if (subrubro) where.subrubro_nombre = subrubro;
-    if (marca) where.marca_descripcion = marca;
-    if (talle) where.talla = talle;
+    if (subrubro) {
+      where.subrubro_nombre = subrubro;
+    }
+
+    if (marca) {
+      where.marca_descripcion = marca;
+    }
+
+    if (talle) {
+      where.talla = talle;
+    }
 
     if (precioMin || precioMax) {
       where.precio_lista = {};
@@ -94,7 +118,7 @@ export async function GET(request: NextRequest) {
       if (precioMax) where.precio_lista.lte = parseFloat(precioMax);
     }
 
-    // ── Ordenamiento dinámico
+    // Definir ordenamiento según parámetro
     let orderBy: any[] = [];
     
     switch (orden) {
@@ -123,7 +147,9 @@ export async function GET(request: NextRequest) {
         ];
         break;
       case 'nombre':
-        orderBy = [{ nombre: 'asc' }];
+        orderBy = [
+          { nombre: 'asc' }
+        ];
         break;
       default:
         orderBy = [
@@ -132,30 +158,20 @@ export async function GET(request: NextRequest) {
         ];
     }
 
-    // ── Query
+    // Query con ordenamiento dinámico
     const productos = await prisma.producto.findMany({
       where,
       orderBy,
       take: limit,
     });
 
-    // ── Precios comerciales (.999 y coeficientes)
-    const productosOut = productos.map((p) => {
-      const base = Number(p.precio_lista) || 0;
-      const { lista, contado, debito, offContado, offDebito } = calcularPrecios(base);
-      return {
-        ...p,
-        precio_lista_redondeado: lista,
-        precio_contado: contado,
-        precio_debito: debito,
-        descuento_contado_pct: offContado,
-        descuento_debito_pct: offDebito,
-      };
-    });
+    return NextResponse.json({ productos });
 
-    return NextResponse.json({ productos: productosOut });
-  } catch (err) {
-    console.error('Error fetching productos:', err);
-    return NextResponse.json({ error: 'Error al cargar productos' }, { status: 500 });
+  } catch (error) {
+    console.error('Error fetching productos:', error);
+    return NextResponse.json(
+      { error: 'Error al cargar productos' },
+      { status: 500 }
+    );
   }
 }

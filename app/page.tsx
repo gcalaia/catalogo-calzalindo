@@ -77,9 +77,24 @@ export default function Home() {
     fetchFiltros();
   }, []);
 
+  // Actualizar marcas cuando cambia el rubro
   useEffect(() => {
-    const hayFiltros = searchTerm || rubroFilter !== 'all' || subrubroFilter || talleFilter || marcaFilter || precioMin || precioMax;
-    if (hayFiltros) {
+    if (rubroFilter !== 'all') {
+      fetchMarcasPorRubro(rubroFilter);
+    } else {
+      fetchFiltros();
+    }
+  }, [rubroFilter]);
+
+  useEffect(() => {
+    const hayBusqueda = searchTerm.length > 0;
+    const hayFiltrosEspecificos = subrubroFilter || talleFilter || marcaFilter || precioMin || precioMax;
+    
+    // Solo buscar si:
+    // 1. Hay búsqueda por texto
+    // 2. Está en "Todos" Y tiene filtros específicos
+    // 3. Está en un rubro específico Y tiene filtros específicos
+    if (hayBusqueda || (rubroFilter === 'all' && hayFiltrosEspecificos) || (rubroFilter !== 'all' && hayFiltrosEspecificos)) {
       const timeoutId = setTimeout(() => {
         fetchProductos();
       }, 500);
@@ -106,6 +121,20 @@ export default function Home() {
       console.error('Error fetching filtros:', err);
     } finally {
       setLoadingFilters(false);
+    }
+  };
+
+  const fetchMarcasPorRubro = async (rubro: string) => {
+    try {
+      const response = await fetch(`/api/productos?only_filters=true&rubro=${rubro}`);
+      if (!response.ok) return;
+      
+      const data = await response.json();
+      setMarcasDisponibles(data.filtros.marcas);
+      setSubrubrosDisponibles(data.filtros.subrubros);
+      setTallesDisponibles(data.filtros.talles);
+    } catch (err) {
+      console.error('Error fetching marcas por rubro:', err);
     }
   };
 
@@ -214,7 +243,8 @@ export default function Home() {
     setPrecioMax('');
   };
 
-  const hayFiltrosActivos = searchTerm || rubroFilter !== 'all' || subrubroFilter || marcaFilter || talleFilter || precioMin || precioMax;
+  const hayFiltrosEspecificos = subrubroFilter || marcaFilter || talleFilter || precioMin || precioMax;
+  const hayBusqueda = searchTerm.length > 0;
 
   if (loadingFilters) {
     return (
@@ -334,7 +364,7 @@ export default function Home() {
                 </select>
               </div>
 
-              {hayFiltrosActivos && (
+              {(hayFiltrosEspecificos || hayBusqueda || rubroFilter !== 'all') && (
                 <button
                   onClick={limpiarFiltros}
                   className="px-4 py-2 text-sm text-blue-600 hover:text-blue-800 underline"
@@ -352,21 +382,24 @@ export default function Home() {
             </div>
           )}
           
-          {!loading && hayFiltrosActivos && (
+          {!loading && familias.length > 0 && (
             <p className="text-sm text-gray-600 mt-4">
-              {familias.length === 0 
-                ? 'No se encontraron productos' 
-                : `Mostrando ${familias.length} ${familias.length === 1 ? 'familia' : 'familias'} de productos`}
+              Mostrando {familias.length} {familias.length === 1 ? 'familia' : 'familias'} de productos
             </p>
           )}
           
-          {!loading && !hayFiltrosActivos && (
+          {/* Mensaje cuando no hay filtros aplicados */}
+          {!loading && !hayBusqueda && familias.length === 0 && (
             <div className="text-center py-12 bg-white rounded-lg shadow mt-4">
               <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
               </svg>
               <h3 className="mt-2 text-sm font-medium text-gray-900">Buscá tu calzado ideal</h3>
-              <p className="mt-1 text-sm text-gray-500">Seleccioná un rubro o aplicá filtros para ver los productos</p>
+              <p className="mt-1 text-sm text-gray-500">
+                {rubroFilter !== 'all' 
+                  ? 'Seleccioná tipo de calzado, marca o talle para ver productos' 
+                  : 'Seleccioná un rubro o aplicá filtros para ver los productos'}
+              </p>
             </div>
           )}
         </div>
