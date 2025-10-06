@@ -77,14 +77,10 @@ export default function Home() {
     fetchFiltros();
   }, []);
 
-  // Actualizar marcas cuando cambia el rubro
+  // Actualizar filtros cuando cambia rubro o subrubro
   useEffect(() => {
-    if (rubroFilter !== 'all') {
-      fetchMarcasPorRubro(rubroFilter);
-    } else {
-      fetchFiltros();
-    }
-  }, [rubroFilter]);
+    fetchFiltrosDinamicos();
+  }, [rubroFilter, subrubroFilter]);
 
   useEffect(() => {
     const hayBusqueda = searchTerm.length > 0;
@@ -124,17 +120,27 @@ export default function Home() {
     }
   };
 
-  const fetchMarcasPorRubro = async (rubro: string) => {
+  const fetchFiltrosDinamicos = async () => {
     try {
-      const response = await fetch(`/api/productos?only_filters=true&rubro=${rubro}`);
+      const params = new URLSearchParams();
+      params.append('only_filters', 'true');
+      
+      if (rubroFilter !== 'all') params.append('rubro', rubroFilter);
+      if (subrubroFilter) params.append('subrubro', subrubroFilter);
+      
+      const response = await fetch(`/api/productos?${params.toString()}`);
       if (!response.ok) return;
       
       const data = await response.json();
       setMarcasDisponibles(data.filtros.marcas);
-      setSubrubrosDisponibles(data.filtros.subrubros);
       setTallesDisponibles(data.filtros.talles);
+      
+      // Solo actualizar subrubros si no hay uno seleccionado
+      if (!subrubroFilter) {
+        setSubrubrosDisponibles(data.filtros.subrubros);
+      }
     } catch (err) {
-      console.error('Error fetching marcas por rubro:', err);
+      console.error('Error fetching filtros dinámicos:', err);
     }
   };
 
