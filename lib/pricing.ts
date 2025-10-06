@@ -5,7 +5,7 @@ export const COEF = {
   DEBITO: 0.7342675389359863,
 };
 
-// .999
+// redondeo comercial .999 para LISTA
 export const aComercial = (x: number) => {
   const abs = Math.abs(x);
   const paso = abs < 20000 ? 100 : abs < 100000 ? 1000 : 10000;
@@ -13,10 +13,10 @@ export const aComercial = (x: number) => {
 };
 
 export function calcularPrecios(precioLista: number) {
-  const lista = aComercial(precioLista);              // .999
-  const contado = Math.round(precioLista * COEF.CONTADO); // EXACTO calculadora
-  const debito  = Math.round(precioLista * COEF.DEBITO);  // EXACTO calculadora
-  const descuento = Math.round((1 - COEF.CONTADO) * 100); // ~33%
-  const recargoDeb = Math.round((COEF.DEBITO - 1) * 100); // ~7%
+  const lista   = aComercial(precioLista);                 // .999
+  const contado = Math.round(precioLista * COEF.CONTADO);  // exacto calculadora
+  const debito  = Math.round(precioLista * COEF.DEBITO);   // exacto calculadora
+  const descuento = Math.round((1 - COEF.CONTADO) * 100);
+  const recargoDeb = Math.round((COEF.DEBITO - 1) * 100);
   return { lista, contado, debito, descuento, recargoDeb };
 }
