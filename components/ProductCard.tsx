@@ -5,6 +5,20 @@ import { getColorStyle, isColorDark, getColorHex } from '@/lib/colorMap';
 import { calcularPrecios } from '@/lib/pricing';
 import { useConsulta } from '@/app/contexts/ConsultaContext';
 
+interface Talle {
+  talla: string;
+  stock: number;
+  codigo: number;
+  precio_lista?: number;
+}
+
+interface Variante {
+  color: string;
+  imagen_url: string | null;
+  codigo: number;
+  talles: Talle[];
+}
+
 interface ProductCardProps {
   familia: {
     familia_id: string;
@@ -12,27 +26,15 @@ interface ProductCardProps {
     marca_descripcion: string | null;
     rubro: string | null;
     precio_lista: number;
-    variantes: {
-      color: string;
-      imagen_url: string | null;
-      codigo: number;
-      talles: {
-        talla: string;
-        stock: number;
-        codigo: number;
-      }[];
-    }[];
+    variantes: Variante[];
   };
 }
 
 export default function ProductCard({ familia }: ProductCardProps) {
   const [selectedColor, setSelectedColor] = useState(0);
   const [selectedTalle, setSelectedTalle] = useState<string | null>(null);
-  const [showPrices, setShowPrices] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [showImageModal, setShowImageModal] = useState(false);
-  const [precioSeleccionado, setPrecioSeleccionado] = useState<'lista' | 'debito' | 'contado'>('contado');
-
   const { addItem } = useConsulta();
 
   const varianteActual = familia.variantes[selectedColor];
@@ -40,50 +42,55 @@ export default function ProductCard({ familia }: ProductCardProps) {
     varianteActual?.imagen_url ||
     'https://evirtual.calzalindo.com.ar:58000/clz_ventas/static/images/no_image.png';
 
-  const { lista, debito, contado, offContado, offDebito } = calcularPrecios(familia.precio_lista);
+  // precios comerciales desde el precio de lista de la familia
+  const { lista, contado, debito, offContado, offDebito } = calcularPrecios(
+    familia.precio_lista
+  );
 
+  type MedioKey = 'contado' | 'debito' | 'lista';
+  const opciones = [
+    { key: 'contado' as const, label: `Contado (-${offContado}%)`, value: contado, off: offContado },
+    { key: 'debito'  as const, label: `Débito (-${offDebito}%)`,   value: debito,  off: offDebito  },
+    { key: 'lista'   as const, label: 'Precio de lista',            value: lista,   off: 0          },
+  ];
+  const [medioSel, setMedioSel] = useState<MedioKey>('contado');
+  const sel = opciones.find(o => o.key === medioSel)!;
+
+  // talle activo
   const talleActual =
     (selectedTalle && varianteActual?.talles.find(t => t.talla === selectedTalle)) ||
     varianteActual?.talles[0];
 
+  // stock y badge
   const stockTotal = varianteActual?.talles.reduce((sum, t) => sum + t.stock, 0) || 0;
   const esUltimasUnidades = stockTotal > 0 && stockTotal <= 3;
 
-  const precioFinal =
-    precioSeleccionado === 'lista' ? lista :
-    precioSeleccionado === 'debito' ? debito :
-    contado;
-
-  const etiquetaPrecio =
-    precioSeleccionado === 'lista' ? 'Lista' :
-    precioSeleccionado === 'debito' ? `Débito (-${offDebito}%)` :
-    `Contado (-${offContado}%)`;
-
+  // acciones
   const handleWhatsApp = () => {
     const whatsapp = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || '5491234567890';
     const t = talleActual?.talla ? `\nTalle: ${talleActual.talla}` : '';
-    const s = typeof talleActual?.stock === 'number' ? `\nStock disponible: ${talleActual.stock}` : '';
-    const mensaje =
-`Hola! Me interesa el producto:
+    const s =
+      typeof talleActual?.stock === 'number' ? `\nStock disponible: ${talleActual.stock}` : '';
+    const mensaje = `Hola! Me interesa el producto:
 ${familia.nombre}
-Marca: ${familia.marca_descripcion ?? '-'}
+Marca: ${familia.marca_descripcion}
 Color: ${varianteActual.color}${t}${s}
-Precio (${etiquetaPrecio}): $${precioFinal.toLocaleString('es-AR')}`;
+Medio: ${sel.label}
+Precio: $${sel.value.toLocaleString('es-AR')}`;
     window.open(`https://wa.me/${whatsapp}?text=${encodeURIComponent(mensaje)}`, '_blank');
   };
 
   const handleAgregar = () => {
     const talle = talleActual?.talla ?? '';
     const color = varianteActual?.color ?? '';
-    const id = `${familia.familia_id}-${color}-${talle}`;
+    const id = `${familia.familia_id}-${color}-${talle}-${sel.key}`;
     addItem({
       id,
       nombre: familia.nombre,
       marca: familia.marca_descripcion,
       color,
       talle,
-      // para la lista de consulta interna dejamos contado
-      precio: contado,
+      precio: sel.value, // precio elegido
       stock: talleActual?.stock ?? 0,
     });
   };
@@ -100,6 +107,7 @@ Precio (${etiquetaPrecio}): $${precioFinal.toLocaleString('es-AR')}`;
             ¡Últimas unidades!
           </div>
         )}
+
         <img
           src={imageError ? 'https://evirtual.calzalindo.com.ar:58000/clz_ventas/static/images/no_image.png' : imageUrl}
           alt={familia.nombre}
@@ -117,62 +125,36 @@ Precio (${etiquetaPrecio}): $${precioFinal.toLocaleString('es-AR')}`;
           <p className="text-xs text-gray-500 mb-2">{familia.marca_descripcion}</p>
         )}
 
-        {/* Precio principal (siempre mostramos contado destacado) */}
+        {/* Recuadro de precio: refleja el medio seleccionado */}
         <div className="mb-2 bg-green-50 rounded-lg p-3 border border-green-200">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-xs font-medium text-green-700 uppercase">Precio Contado</span>
-            <span className="bg-green-500 text-white text-xs font-bold px-2 py-0.5 rounded">
-              -{offContado}% OFF
+            <span className="text-xs font-medium text-green-700 uppercase">
+              Precio {sel.key === 'lista' ? 'de lista' : sel.label.split(' ')[0]}
             </span>
+            {sel.off > 0 && (
+              <span className="bg-green-500 text-white text-xs font-bold px-2 py-0.5 rounded">
+                -{sel.off}% OFF
+              </span>
+            )}
           </div>
           <p className="text-2xl font-bold text-green-600">
-            ${contado.toLocaleString('es-AR')}
+            ${sel.value.toLocaleString('es-AR')}
           </p>
         </div>
 
-        {/* Menú seleccionable de precio */}
-        <div className="mb-3">
-          <label className="block text-xs text-gray-600 mb-1">Quiero consultar por:</label>
-          <select
-            value={precioSeleccionado}
-            onChange={(e) => setPrecioSeleccionado(e.target.value as 'lista' | 'debito' | 'contado')}
-            className="w-full text-sm border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="contado">Contado (-{offContado}%) — ${contado.toLocaleString('es-AR')}</option>
-            <option value="debito">Débito (-{offDebito}%) — ${debito.toLocaleString('es-AR')}</option>
-            <option value="lista">Precio de lista — ${lista.toLocaleString('es-AR')}</option>
-          </select>
-          <p className="mt-2 text-sm">
-            <span className="text-gray-600">Seleccionado:</span>{' '}
-            <span className="font-semibold">${precioFinal.toLocaleString('es-AR')}</span>{' '}
-            <span className="text-gray-500">({etiquetaPrecio})</span>
-          </p>
-        </div>
-
-        {/* Toggle otros medios (detalle) */}
-        <button
-          onClick={() => setShowPrices(!showPrices)}
-          className="text-xs text-blue-600 hover:text-blue-800 mb-3 underline"
+        {/* Selector de medio */}
+        <label className="block text-xs text-gray-700 mb-1">Quiero consultar por:</label>
+        <select
+          value={medioSel}
+          onChange={(e) => setMedioSel(e.target.value as MedioKey)}
+          className="w-full mb-3 rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
-          {showPrices ? 'Ocultar precios' : 'Ver detalle de precios'}
-        </button>
-
-        {showPrices && (
-          <div className="bg-gray-50 rounded p-3 mb-3 space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-gray-600">Precio de lista:</span>
-              <span className="font-semibold">${lista.toLocaleString('es-AR')}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">Débito (-{offDebito}%):</span>
-              <span className="font-semibold">${debito.toLocaleString('es-AR')}</span>
-            </div>
-            <div className="flex justify-between border-t pt-2">
-              <span className="text-green-600 font-medium">Contado (-{offContado}%):</span>
-              <span className="font-bold text-green-600">${contado.toLocaleString('es-AR')}</span>
-            </div>
-          </div>
-        )}
+          {opciones.map(o => (
+            <option key={o.key} value={o.key}>
+              {o.label} — ${o.value.toLocaleString('es-AR')}
+            </option>
+          ))}
+        </select>
 
         {/* Selector de colores */}
         {familia.variantes.length > 1 && (
@@ -185,6 +167,7 @@ Precio (${etiquetaPrecio}): $${precioFinal.toLocaleString('es-AR')}`;
                   const colorStyle = getColorStyle(variante.color);
                   const hexColor = getColorHex(variante.color);
                   const isDark = isColorDark(hexColor);
+
                   return (
                     <button
                       key={index}
@@ -194,7 +177,9 @@ Precio (${etiquetaPrecio}): $${precioFinal.toLocaleString('es-AR')}`;
                         setImageError(false);
                       }}
                       className={`w-9 h-9 rounded-full transition-all flex items-center justify-center ${
-                        isSelected ? 'ring-2 ring-blue-500 ring-offset-2 scale-110' : 'ring-1 ring-gray-300 hover:scale-105'
+                        isSelected
+                          ? 'ring-2 ring-blue-500 ring-offset-2 scale-110'
+                          : 'ring-1 ring-gray-300 hover:scale-105'
                       }`}
                       style={colorStyle}
                       title={variante.color}
@@ -232,7 +217,9 @@ Precio (${etiquetaPrecio}): $${precioFinal.toLocaleString('es-AR')}`;
                   key={index}
                   onClick={() => setSelectedTalle(talle.talla)}
                   className={`px-3 py-1 text-xs rounded transition-all ${
-                    selectedTalle === talle.talla ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    selectedTalle === talle.talla
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
                 >
                   {talle.talla}
@@ -243,7 +230,7 @@ Precio (${etiquetaPrecio}): $${precioFinal.toLocaleString('es-AR')}`;
           </div>
         )}
 
-        {/* Botones de acción (nuevo estilo redondo) */}
+        {/* Botones de acción */}
         <div className="flex justify-center gap-3 mt-4">
           {/* + Agregar */}
           <button
@@ -271,7 +258,7 @@ Precio (${etiquetaPrecio}): $${precioFinal.toLocaleString('es-AR')}`;
         </div>
       </div>
 
-      {/* Modal imagen */}
+      {/* Modal de imagen ampliada */}
       {showImageModal && (
         <div
           className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4"
