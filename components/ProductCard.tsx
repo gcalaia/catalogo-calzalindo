@@ -62,31 +62,27 @@ export default function ProductCard({ familia }: ProductCardProps) {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow duration-300">
-      <div className="relative aspect-square bg-gradient-to-br from-gray-50 to-gray-100 overflow-hidden">
-        <div className="absolute top-3 right-3 bg-green-500 text-white text-xs font-bold px-3 py-1.5 rounded-md shadow-lg z-10">
-          -5% OFF
-        </div>
-        
-        {esUltimasUnidades && (
-          <div className="absolute top-3 left-3 bg-orange-500 text-white text-xs font-bold px-3 py-1.5 rounded-md shadow-lg z-10 animate-pulse">
-            ¡Últimas unidades!
-          </div>
-        )}
-        
-        <Image
-          src={imageUrl}
-          alt={familia.nombre}
-          fill
-          className="object-cover hover:scale-105 transition-transform duration-300"
-          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-          priority={false}
-          onError={(e) => {
-            const target = e.target as HTMLImageElement;
-            target.src = 'https://placehold.co/600x600/f3f4f6/6b7280?text=Sin+Imagen';
-          }}
-        />
-      </div>
+    <div className="relative aspect-square bg-gradient-to-br from-gray-50 to-gray-100 overflow-hidden">
+  {/* Badge de Últimas Unidades (se mantiene) */}
+  {esUltimasUnidades && (
+    <div className="absolute top-3 left-3 bg-orange-500 text-white text-xs font-bold px-3 py-1.5 rounded-md shadow-lg z-10 animate-pulse">
+      ¡Últimas unidades!
+    </div>
+  )}
+  
+  <Image
+    src={imageUrl}
+    alt={familia.nombre}
+    fill
+    className="object-cover hover:scale-105 transition-transform duration-300"
+    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+    priority={false}
+    onError={(e) => {
+      const target = e.target as HTMLImageElement;
+      target.src = 'https://placehold.co/600x600/f3f4f6/6b7280?text=Sin+Imagen';
+    }}
+  />
+</div>
 
       <div className="p-4">
         <h3 className="font-semibold text-gray-900 text-sm mb-1 line-clamp-2 h-10">
