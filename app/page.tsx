@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import ProductCard from '@/components/ProductCard';
-
+import Header from "@/components/Header"; 
 interface Producto {
   id: number;
   codigo: number;
@@ -267,9 +267,8 @@ export default function Home() {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-6">
-            Catálogo Calzalindo
-          </h1>
+        <Header />
+        </div>
           
           {/* Búsqueda */}
           <div className="mb-4">
