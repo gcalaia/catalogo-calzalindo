@@ -100,7 +100,7 @@ export default function ProductCardGrouped({
               Precio Contado
             </span>
             <span className="text-xs text-green-600 font-medium">
-              -{descuento}% OFF
+              + -{offContado}% OFF
             </span>
           </div>
           <p className="text-3xl font-bold text-green-700">
@@ -131,7 +131,7 @@ export default function ProductCardGrouped({
               <div className="flex items-center justify-between mb-1">
                 <span className="text-xs font-medium text-gray-600 flex items-center gap-1">
                   <CreditCard className="h-3.5 w-3.5" />
-                  Débito (+{recargoDeb}%)
+                  + Débito (+{offDebito}%)
                 </span>
               </div>
               <p className="text-xl font-bold text-gray-800">
