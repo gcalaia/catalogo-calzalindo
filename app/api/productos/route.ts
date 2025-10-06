@@ -11,15 +11,19 @@ export async function GET(request: NextRequest) {
     if (onlyFilters) {
       const RUBROS_VALIDOS = ['DAMAS', 'HOMBRES', 'NIÑOS', 'NIÑAS', 'UNISEX'];
       const rubro = searchParams.get('rubro');
+      const subrubro = searchParams.get('subrubro');
       
       const whereFilters: any = {
         stock_disponible: { gt: 0 },
         rubro: { in: RUBROS_VALIDOS }
       };
       
-      // Si hay rubro específico, filtrar por ese rubro
       if (rubro && rubro !== 'all') {
         whereFilters.rubro = rubro;
+      }
+      
+      if (subrubro) {
+        whereFilters.subrubro_nombre = subrubro;
       }
       
       const [subrubros, marcas, talles] = await Promise.all([
@@ -80,12 +84,14 @@ export async function GET(request: NextRequest) {
     const talle = searchParams.get('talle');
     const precioMin = searchParams.get('precioMin');
     const precioMax = searchParams.get('precioMax');
-    const orden = searchParams.get('orden') || 'stock_asc';
+    const orden = searchParams.get('orden') || 'nuevos';
     const limit = parseInt(searchParams.get('limit') || '2000');
 
     // Construir filtros
+    const RUBROS_VALIDOS = ['DAMAS', 'HOMBRES', 'NIÑOS', 'NIÑAS', 'UNISEX'];
     const where: any = {
       stock_disponible: { gt: 0 },
+      rubro: { in: RUBROS_VALIDOS }
     };
 
     if (search) {
@@ -118,7 +124,7 @@ export async function GET(request: NextRequest) {
       if (precioMax) where.precio_lista.lte = parseFloat(precioMax);
     }
 
-    // Definir ordenamiento según parámetro
+    // Definir ordenamiento
     let orderBy: any[] = [];
     
     switch (orden) {
@@ -147,18 +153,15 @@ export async function GET(request: NextRequest) {
         ];
         break;
       case 'nombre':
-        orderBy = [
-          { nombre: 'asc' }
-        ];
+        orderBy = [{ nombre: 'asc' }];
         break;
       default:
         orderBy = [
-          { stock_disponible: 'asc' },
-          { createdAt: 'desc' }
+          { createdAt: 'desc' },
+          { stock_disponible: 'asc' }
         ];
     }
 
-    // Query con ordenamiento dinámico
     const productos = await prisma.producto.findMany({
       where,
       orderBy,
