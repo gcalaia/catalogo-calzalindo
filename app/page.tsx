@@ -67,7 +67,7 @@ export default function Home() {
   const [marcaFilter, setMarcaFilter] = useState('');
   const [precioMin, setPrecioMin] = useState('');
   const [precioMax, setPrecioMax] = useState('');
-  const [ordenFilter, setOrdenFilter] = useState('stock_asc');
+  const [ordenFilter, setOrdenFilter] = useState('nuevos');
   
   const [subrubrosDisponibles, setSubrubrosDisponibles] = useState<string[]>([]);
   const [tallesDisponibles, setTallesDisponibles] = useState<string[]>([]);

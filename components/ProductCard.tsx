@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import Image from 'next/image';
 import { getColorStyle, isColorDark, getColorHex } from '@/lib/colorMap';
+import { calcularPrecios } from '@/lib/pricing';
 
 interface ProductCardProps {
   familia: {
@@ -24,31 +24,17 @@ interface ProductCardProps {
   };
 }
 
-function calcularPrecios(precioBase: number) {
-  const contado = precioBase * 0.95;
-  const debito = precioBase * 1.05;
-  
-  const redondearComercial = (precio: number) => {
-    return Math.ceil(precio / 100) * 100 - 1;
-  };
-  
-  return {
-    lista: redondearComercial(precioBase),
-    contado: redondearComercial(contado),
-    debito: redondearComercial(debito),
-    descuento: 5
-  };
-}
-
 export default function ProductCard({ familia }: ProductCardProps) {
   const [selectedColor, setSelectedColor] = useState(0);
   const [selectedTalle, setSelectedTalle] = useState<string | null>(null);
   const [showPrices, setShowPrices] = useState(false);
+  const [imageError, setImageError] = useState(false);
+  const [showImageModal, setShowImageModal] = useState(false);
 
   const varianteActual = familia.variantes[selectedColor];
   const imageUrl = varianteActual?.imagen_url || 'https://evirtual.calzalindo.com.ar:58000/clz_ventas/static/images/no_image.png';
   const talleSeleccionado = varianteActual?.talles.find(t => t.talla === selectedTalle);
-  const precios = calcularPrecios(familia.precio_lista);
+  const { lista, contado, debito, offContado, offDebito } = calcularPrecios(familia.precio_lista);
   
   const stockTotal = varianteActual?.talles.reduce((sum, t) => sum + t.stock, 0) || 0;
   const esUltimasUnidades = stockTotal > 0 && stockTotal <= 3;
@@ -56,35 +42,29 @@ export default function ProductCard({ familia }: ProductCardProps) {
   const handleWhatsApp = () => {
     const talleInfo = selectedTalle ? `\nTalle: ${selectedTalle}` : '';
     const stockInfo = talleSeleccionado ? `\nStock disponible: ${talleSeleccionado.stock}` : '';
-    const mensaje = `Hola! Me interesa el producto:\n${familia.nombre}\nMarca: ${familia.marca_descripcion}\nColor: ${varianteActual.color}${talleInfo}${stockInfo}\nPrecio contado: $${precios.contado.toLocaleString()}`;
+    const mensaje = `Hola! Me interesa el producto:\n${familia.nombre}\nMarca: ${familia.marca_descripcion}\nColor: ${varianteActual.color}${talleInfo}${stockInfo}\nPrecio contado: ${contado.toLocaleString('es-AR')}`;
     const url = `https://wa.me/5491234567890?text=${encodeURIComponent(mensaje)}`;
     window.open(url, '_blank');
   };
 
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow duration-300">
-      <div className="relative aspect-square bg-gradient-to-br from-gray-50 to-gray-100 overflow-hidden">
-        <div className="absolute top-3 right-3 bg-green-500 text-white text-xs font-bold px-3 py-1.5 rounded-md shadow-lg z-10">
-          -5% OFF
-        </div>
-        
+      <div 
+        className="relative aspect-square bg-gradient-to-br from-gray-50 to-gray-100 overflow-hidden cursor-zoom-in"
+        onClick={() => setShowImageModal(true)}
+      >
         {esUltimasUnidades && (
           <div className="absolute top-3 left-3 bg-orange-500 text-white text-xs font-bold px-3 py-1.5 rounded-md shadow-lg z-10 animate-pulse">
             ¡Últimas unidades!
           </div>
         )}
         
-        <Image
-          src={imageUrl}
+        {/* Usar img normal en vez de Next Image para evitar problemas con URLs externas */}
+        <img
+          src={imageError ? 'https://evirtual.calzalindo.com.ar:58000/clz_ventas/static/images/no_image.png' : imageUrl}
           alt={familia.nombre}
-          fill
-          className="object-cover hover:scale-105 transition-transform duration-300"
-          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-          priority={false}
-          onError={(e) => {
-            const target = e.target as HTMLImageElement;
-            target.src = 'https://evirtual.calzalindo.com.ar:58000/clz_ventas/static/images/no_image.png';
-          }}
+          className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+          onError={() => setImageError(true)}
         />
       </div>
 
@@ -100,11 +80,11 @@ export default function ProductCard({ familia }: ProductCardProps) {
           <div className="flex items-center justify-between mb-1">
             <span className="text-xs font-medium text-green-700 uppercase">Precio Contado</span>
             <span className="bg-green-500 text-white text-xs font-bold px-2 py-0.5 rounded">
-              -{precios.descuento}% OFF
+              -{offContado}% OFF
             </span>
           </div>
           <p className="text-2xl font-bold text-green-600">
-            ${precios.contado.toLocaleString()}
+            ${contado.toLocaleString('es-AR')}
           </p>
         </div>
 
@@ -119,20 +99,19 @@ export default function ProductCard({ familia }: ProductCardProps) {
           <div className="bg-gray-50 rounded p-3 mb-3 space-y-2 text-sm">
             <div className="flex justify-between">
               <span className="text-gray-600">Precio de lista:</span>
-              <span className="font-semibold">${precios.lista.toLocaleString()}</span>
+              <span className="font-semibold">${lista.toLocaleString('es-AR')}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">Débito:</span>
-              <span className="font-semibold">${precios.debito.toLocaleString()}</span>
+              <span className="text-gray-600">Débito (-{offDebito}%):</span>
+              <span className="font-semibold">${debito.toLocaleString('es-AR')}</span>
             </div>
             <div className="flex justify-between border-t pt-2">
-              <span className="text-green-600 font-medium">Contado (-5%):</span>
-              <span className="font-bold text-green-600">${precios.contado.toLocaleString()}</span>
+              <span className="text-green-600 font-medium">Contado (-{offContado}%):</span>
+              <span className="font-bold text-green-600">${contado.toLocaleString('es-AR')}</span>
             </div>
           </div>
         )}
 
-        {/* 🎨 SELECTOR DE COLORES MEJORADO */}
         {familia.variantes.length > 1 && (
           <div className="mb-3">
             <div className="flex gap-2 items-center flex-wrap mb-2">
@@ -151,6 +130,7 @@ export default function ProductCard({ familia }: ProductCardProps) {
                       onClick={() => {
                         setSelectedColor(index);
                         setSelectedTalle(null);
+                        setImageError(false);
                       }}
                       className={`
                         w-9 h-9 rounded-full transition-all flex items-center justify-center
@@ -224,6 +204,36 @@ export default function ProductCard({ familia }: ProductCardProps) {
           Consultar
         </button>
       </div>
+
+      {/* Modal de imagen ampliada */}
+      {showImageModal && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4"
+          onClick={() => setShowImageModal(false)}
+        >
+          <div className="relative max-w-5xl w-full">
+            <button
+              onClick={() => setShowImageModal(false)}
+              className="absolute -top-12 right-0 text-white text-4xl hover:text-gray-300 font-light"
+              aria-label="Cerrar"
+            >
+              ×
+            </button>
+            <img
+              src={imageError ? 'https://evirtual.calzalindo.com.ar:58000/clz_ventas/static/images/no_image.png' : imageUrl}
+              alt={familia.nombre}
+              className="w-full h-auto max-h-[85vh] object-contain rounded-lg"
+              onClick={(e) => e.stopPropagation()}
+            />
+            <div className="mt-4 text-white text-center">
+              <p className="text-lg font-semibold">{familia.nombre}</p>
+              {familia.marca_descripcion && (
+                <p className="text-sm text-gray-300">{familia.marca_descripcion}</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
