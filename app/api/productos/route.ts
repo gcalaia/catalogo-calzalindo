@@ -1,126 +1,106 @@
-import { NextResponse } from 'next/server';
+// app/api/productos/route.ts
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    
+    const searchParams = request.nextUrl.searchParams;
     const onlyFilters = searchParams.get('only_filters') === 'true';
-    
+
+    // Si solo piden filtros
     if (onlyFilters) {
       const [subrubros, marcas, talles] = await Promise.all([
-        prisma.producto.groupBy({
-          by: ['subrubro_nombre'],
+        prisma.producto.findMany({
+          select: { subrubro_nombre: true },
           where: { subrubro_nombre: { not: null } },
-          orderBy: { subrubro_nombre: 'asc' }
+          distinct: ['subrubro_nombre'],
         }),
-        prisma.producto.groupBy({
-          by: ['marca_descripcion'],
+        prisma.producto.findMany({
+          select: { marca_descripcion: true },
           where: { marca_descripcion: { not: null } },
-          orderBy: { marca_descripcion: 'asc' }
+          distinct: ['marca_descripcion'],
         }),
-        prisma.producto.groupBy({
-          by: ['talla'],
+        prisma.producto.findMany({
+          select: { talla: true },
           where: { talla: { not: null } },
-          orderBy: { talla: 'asc' }
-        })
+          distinct: ['talla'],
+        }),
       ]);
-      
-      const tallesOrdenados = talles
-        .map(t => t.talla!)
-        .sort((a, b) => parseFloat(a) - parseFloat(b));
-      
+
       return NextResponse.json({
         filtros: {
-          subrubros: subrubros.map(s => s.subrubro_nombre!),
-          marcas: marcas.map(m => m.marca_descripcion!),
-          talles: tallesOrdenados
-        }
+          subrubros: subrubros
+            .map(s => s.subrubro_nombre)
+            .filter(Boolean)
+            .sort(),
+          marcas: marcas
+            .map(m => m.marca_descripcion)
+            .filter(Boolean)
+            .sort(),
+          talles: talles
+            .map(t => t.talla)
+            .filter(Boolean)
+            .sort((a, b) => parseFloat(a) - parseFloat(b)),
+        },
       });
     }
-    
+
+    // Parámetros de búsqueda
     const search = searchParams.get('search') || '';
-    const subrubro = searchParams.get('subrubro') || '';
-    const talle = searchParams.get('talle') || '';
-    const marca = searchParams.get('marca') || '';
+    const subrubro = searchParams.get('subrubro');
+    const marca = searchParams.get('marca');
+    const talle = searchParams.get('talle');
     const precioMin = searchParams.get('precioMin');
     const precioMax = searchParams.get('precioMax');
     const limit = parseInt(searchParams.get('limit') || '2000');
-    const offset = parseInt(searchParams.get('offset') || '0');
 
-    const whereConditions: any = {
-      AND: []
+    // Construir filtros
+    const where: any = {
+      stock_disponible: { gt: 0 },
     };
 
     if (search) {
-      whereConditions.AND.push({
-        OR: [
-          { nombre: { contains: search, mode: 'insensitive' } },
-          { codigo_sinonimo: { contains: search, mode: 'insensitive' } }
-        ]
-      });
+      where.OR = [
+        { nombre: { contains: search, mode: 'insensitive' } },
+        { marca_descripcion: { contains: search, mode: 'insensitive' } },
+        { subrubro_nombre: { contains: search, mode: 'insensitive' } },
+      ];
     }
 
     if (subrubro) {
-      whereConditions.AND.push({ subrubro_nombre: { equals: subrubro } });
+      where.subrubro_nombre = subrubro;
     }
 
     if (marca) {
-      whereConditions.AND.push({ marca_descripcion: { equals: marca } });
+      where.marca_descripcion = marca;
     }
 
     if (talle) {
-      whereConditions.AND.push({ talla: { equals: talle } });
+      where.talla = talle;
     }
 
     if (precioMin || precioMax) {
-      const precioFilter: any = {};
-      if (precioMin) precioFilter.gte = parseFloat(precioMin);
-      if (precioMax) precioFilter.lte = parseFloat(precioMax);
-      whereConditions.AND.push({ precio_lista: precioFilter });
+      where.precio_lista = {};
+      if (precioMin) where.precio_lista.gte = parseFloat(precioMin);
+      if (precioMax) where.precio_lista.lte = parseFloat(precioMax);
     }
 
-    const where = whereConditions.AND.length > 0 ? whereConditions : {};
-
-    const [productos, total] = await Promise.all([
-      prisma.producto.findMany({
-        where,
-        select: {
-          id: true,
-          codigo: true,
-          codigo_sinonimo: true,
-          familia_id: true,
-          nombre: true,
-          color: true,
-          talla: true,
-          marca_descripcion: true,
-          rubro: true,
-          subrubro_nombre: true,
-          precio_lista: true,
-          precio_contado: true,
-          imagen_url: true,
-          stock_disponible: true
-        },
-        orderBy: { id: 'asc' },
-        skip: offset,
-        take: limit
-      }),
-      prisma.producto.count({ where })
-    ]);
-
-    return NextResponse.json({
-      productos,
-      total,
-      hasMore: offset + limit < total
+    // 🔥 QUERY CON ORDENAMIENTO: MÁS NUEVOS PRIMERO
+    const productos = await prisma.producto.findMany({
+      where,
+      orderBy: [
+        { createdAt: 'desc' }, // ✅ Los productos SÍ tienen createdAt
+        { nombre: 'asc' },
+      ],
+      take: limit,
     });
 
+    return NextResponse.json({ productos });
+
   } catch (error) {
-    console.error('Error en API productos:', error);
+    console.error('Error fetching productos:', error);
     return NextResponse.json(
-      { 
-        error: 'Error al obtener productos',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      },
+      { error: 'Error al cargar productos' },
       { status: 500 }
     );
   }

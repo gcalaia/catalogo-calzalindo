@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
+import { getColorStyle, isColorDark, getColorHex } from '@/lib/colorMap';
 
 interface ProductCardProps {
   familia: {
@@ -21,30 +22,6 @@ interface ProductCardProps {
       }[];
     }[];
   };
-}
-
-const COLOR_MAP: { [key: string]: string } = {
-  'Rojo': '#DC2626',
-  'Azul': '#2563EB',
-  'Negro': '#1F2937',
-  'Blanco': '#F3F4F6',
-  'Verde': '#16A34A',
-  'Amarillo': '#EAB308',
-  'Rosa': '#EC4899',
-  'Naranja': '#EA580C',
-  'Marrón': '#92400E',
-  'Gris': '#6B7280',
-  'Violeta': '#9333EA',
-  'Celeste': '#0EA5E9',
-  'Beige': '#D2B48C',
-  'Coral': '#FF7F50',
-  'Fucsia': '#E879F9',
-  'Bordó': '#991B1B',
-  'Sin color': '#E5E7EB'
-};
-
-function getColorHex(colorName: string): string {
-  return COLOR_MAP[colorName] || COLOR_MAP['Sin color'];
 }
 
 function calcularPrecios(precioBase: number) {
@@ -155,28 +132,60 @@ export default function ProductCard({ familia }: ProductCardProps) {
           </div>
         )}
 
+        {/* 🎨 SELECTOR DE COLORES MEJORADO */}
         {familia.variantes.length > 1 && (
           <div className="mb-3">
-            <p className="text-xs text-gray-600 mb-2">
-              Color: {varianteActual.color}
-            </p>
-            <div className="flex gap-2 flex-wrap">
-              {familia.variantes.map((variante, index) => (
-                <button
-                  key={index}
-                  onClick={() => {
-                    setSelectedColor(index);
-                    setSelectedTalle(null);
-                  }}
-                  className={`w-8 h-8 rounded-full border-2 transition-all ${
-                    selectedColor === index
-                      ? 'border-blue-600 ring-2 ring-blue-200'
-                      : 'border-gray-300 hover:border-gray-400'
-                  }`}
-                  style={{ backgroundColor: getColorHex(variante.color) }}
-                  title={variante.color}
-                />
-              ))}
+            <div className="flex gap-2 items-center flex-wrap mb-2">
+              <span className="text-xs text-gray-600">Color:</span>
+              
+              <div className="flex gap-2 flex-wrap">
+                {familia.variantes.map((variante, index) => {
+                  const isSelected = selectedColor === index;
+                  const colorStyle = getColorStyle(variante.color);
+                  const hexColor = getColorHex(variante.color);
+                  const isDark = isColorDark(hexColor);
+                  
+                  return (
+                    <button
+                      key={index}
+                      onClick={() => {
+                        setSelectedColor(index);
+                        setSelectedTalle(null);
+                      }}
+                      className={`
+                        w-9 h-9 rounded-full transition-all flex items-center justify-center
+                        ${isSelected 
+                          ? 'ring-2 ring-blue-500 ring-offset-2 scale-110' 
+                          : 'ring-1 ring-gray-300 hover:scale-105'
+                        }
+                      `}
+                      style={colorStyle}
+                      title={variante.color}
+                      aria-label={`Seleccionar color ${variante.color}`}
+                    >
+                      {isSelected && (
+                        <svg 
+                          className={`w-4 h-4 ${isDark ? 'text-white' : 'text-gray-800'}`}
+                          fill="none" 
+                          strokeWidth="3" 
+                          stroke="currentColor" 
+                          viewBox="0 0 24 24"
+                        >
+                          <path 
+                            strokeLinecap="round" 
+                            strokeLinejoin="round" 
+                            d="M5 13l4 4L19 7"
+                          />
+                        </svg>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+              
+              <span className="text-xs font-medium text-gray-800 capitalize">
+                {varianteActual.color.toLowerCase()}
+              </span>
             </div>
           </div>
         )}
