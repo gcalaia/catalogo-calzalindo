@@ -31,16 +31,21 @@ export async function GET(request: NextRequest) {
         filtros: {
           subrubros: subrubros
             .map(s => s.subrubro_nombre)
-            .filter(Boolean)
+            .filter((s): s is string => s !== null)
             .sort(),
           marcas: marcas
             .map(m => m.marca_descripcion)
-            .filter(Boolean)
+            .filter((m): m is string => m !== null)
             .sort(),
           talles: talles
             .map(t => t.talla)
-            .filter(Boolean)
-            .sort((a, b) => parseFloat(a) - parseFloat(b)),
+            .filter((t): t is string => t !== null)
+            .sort((a, b) => {
+              const numA = parseFloat(a);
+              const numB = parseFloat(b);
+              if (isNaN(numA) || isNaN(numB)) return a.localeCompare(b);
+              return numA - numB;
+            }),
         },
       });
     }
@@ -85,11 +90,11 @@ export async function GET(request: NextRequest) {
       if (precioMax) where.precio_lista.lte = parseFloat(precioMax);
     }
 
-    // 🔥 QUERY CON ORDENAMIENTO: MÁS NUEVOS PRIMERO
+    // Query con ordenamiento
     const productos = await prisma.producto.findMany({
       where,
       orderBy: [
-        { createdAt: 'desc' }, // ✅ Los productos SÍ tienen createdAt
+        { createdAt: 'desc' },
         { nombre: 'asc' },
       ],
       take: limit,
