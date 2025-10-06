@@ -1,4 +1,3 @@
-// app/page.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -70,13 +69,9 @@ export default function Home() {
   const [tallesDisponibles, setTallesDisponibles] = useState<string[]>([]);
   const [marcasDisponibles, setMarcasDisponibles] = useState<string[]>([]);
 
-  // filtros iniciales
   useEffect(() => { fetchFiltros(); }, []);
-
-  // filtros dinámicos
   useEffect(() => { fetchFiltrosDinamicos(); }, [rubroFilter, subrubroFilter]);
 
-  // búsqueda de productos
   useEffect(() => {
     const hayBusqueda = searchTerm.trim().length > 0;
     const hayFiltrosEspecificos = subrubroFilter || talleFilter || marcaFilter || precioMin || precioMax;
@@ -222,8 +217,8 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <h1 className="text-3xl font-bold text-gray-900 mb-6">Catálogo Calzalindo</h1>
 
-        {/* Búsqueda */}
         <div className="mb-4">
           <input
             type="text"
@@ -234,7 +229,6 @@ export default function Home() {
           />
         </div>
 
-        {/* Tabs de rubro */}
         <div className="bg-white rounded-lg shadow mb-4 overflow-x-auto">
           <div className="flex border-b">
             {RUBROS.map(r => (
@@ -253,7 +247,6 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Filtros */}
         <div className="bg-white rounded-lg shadow p-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
             <select
