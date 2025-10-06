@@ -2,13 +2,13 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
-interface ConsultaItem {
-  id: string;
+export interface ConsultaItem {
+  id: string;              // único: ej "familiaId-color-talle"
   nombre: string;
   marca: string | null;
   color: string;
   talle: string;
-  precio: number;
+  precio: number;          // precio contado mostrado en la card
   stock: number;
 }
 
@@ -22,40 +22,33 @@ interface ConsultaContextType {
 
 const ConsultaContext = createContext<ConsultaContextType | undefined>(undefined);
 
+const LS_KEY = 'consulta_items_v1';
+
 export function ConsultaProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<ConsultaItem[]>([]);
 
   // Cargar desde localStorage al iniciar
   useEffect(() => {
-    const saved = localStorage.getItem('consulta_items');
-    if (saved) {
-      try {
-        setItems(JSON.parse(saved));
-      } catch (e) {
-        console.error('Error loading consulta items:', e);
-      }
+    try {
+      const saved = localStorage.getItem(LS_KEY);
+      if (saved) setItems(JSON.parse(saved));
+    } catch (e) {
+      console.error('Error loading consulta items:', e);
     }
   }, []);
 
   // Guardar en localStorage cuando cambie
   useEffect(() => {
-    localStorage.setItem('consulta_items', JSON.stringify(items));
+    try {
+      localStorage.setItem(LS_KEY, JSON.stringify(items));
+    } catch {}
   }, [items]);
 
   const addItem = (item: ConsultaItem) => {
     setItems(prev => {
-      // Evitar duplicados (mismo producto, color y talle)
-      const exists = prev.find(i => 
-        i.nombre === item.nombre && 
-        i.color === item.color && 
-        i.talle === item.talle
-      );
-      
-      if (exists) {
-        return prev; // Ya existe, no agregar
-      }
-      
-      return [...prev, item];
+      // evitar duplicados por id
+      if (prev.some(i => i.id === item.id)) return prev;
+      return [item, ...prev];
     });
   };
 
@@ -63,27 +56,19 @@ export function ConsultaProvider({ children }: { children: ReactNode }) {
     setItems(prev => prev.filter(item => item.id !== id));
   };
 
-  const clearAll = () => {
-    setItems([]);
-  };
+  const clearAll = () => setItems([]);
 
   return (
-    <ConsultaContext.Provider value={{
-      items,
-      addItem,
-      removeItem,
-      clearAll,
-      itemCount: items.length
-    }}>
+    <ConsultaContext.Provider
+      value={{ items, addItem, removeItem, clearAll, itemCount: items.length }}
+    >
       {children}
     </ConsultaContext.Provider>
   );
 }
 
 export function useConsulta() {
-  const context = useContext(ConsultaContext);
-  if (!context) {
-    throw new Error('useConsulta must be used within ConsultaProvider');
-  }
-  return context;
+  const ctx = useContext(ConsultaContext);
+  if (!ctx) throw new Error('useConsulta must be used within ConsultaProvider');
+  return ctx;
 }
