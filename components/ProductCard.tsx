@@ -5,14 +5,12 @@ import Image from 'next/image';
 import { getColorStyle, isColorDark, getColorHex } from '@/lib/colorMap';
 import { calcularPrecios } from '@/lib/pricing';
 
-// ===== Interfaces =====
+// ===== Tipos =====
 interface Talle {
   talla: string;
   stock: number;
   codigo: number;
-  precio_lista?: number;
-  precio_contado?: number;
-  precio_debito?: number;
+  precio_lista?: number;   // si viene por talle, lo usamos
 }
 
 interface Variante {
@@ -28,7 +26,7 @@ interface ProductCardProps {
     nombre: string;
     marca_descripcion: string | null;
     rubro: string | null;
-    precio_lista: number;
+    precio_lista: number;     // base si no hay por talle
     variantes: Variante[];
   };
 }
@@ -48,10 +46,10 @@ export default function ProductCard({ familia }: ProductCardProps) {
     ? varianteActual?.talles.find((t) => t.talla === selectedTalle)
     : varianteActual?.talles[0];
 
-  // Base: precio del talle o de la familia
+  // Base: precio del talle (si existe) o de la familia
   const precioBase = productoActual?.precio_lista ?? familia.precio_lista;
 
-  // Cálculo de precios comerciales (.999 y coeficientes)
+  // Precios con coeficientes + redondeo .999 (uniforme)
   const precios = calcularPrecios(precioBase);
 
   const stockTotal =
@@ -101,14 +99,14 @@ export default function ProductCard({ familia }: ProductCardProps) {
           </p>
         )}
 
-        {/* Precio principal */}
+        {/* Precio principal (Contado) */}
         <div className="mb-2 bg-green-50 rounded-lg p-3 border border-green-200">
           <div className="flex items-center justify-between mb-1">
             <span className="text-xs font-medium text-green-700 uppercase">
               Precio Contado
             </span>
             <span className="bg-green-500 text-white text-xs font-bold px-2 py-0.5 rounded">
-              -{precios.descuento}% OFF
+              -{precios.offContado}% OFF
             </span>
           </div>
           <p className="text-2xl font-bold text-green-600">
@@ -124,6 +122,7 @@ export default function ProductCard({ familia }: ProductCardProps) {
           {showPrices ? 'Ocultar precios' : 'Ver otros medios de pago'}
         </button>
 
+        {/* Otros medios */}
         {showPrices && (
           <div className="bg-gray-50 rounded p-3 mb-3 space-y-2 text-sm">
             <div className="flex justify-between">
@@ -133,14 +132,16 @@ export default function ProductCard({ familia }: ProductCardProps) {
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">Débito:</span>
+              <span className="text-gray-600">
+                Débito (-{precios.offDebito}%)
+              </span>
               <span className="font-semibold">
                 ${precios.debito.toLocaleString('es-AR')}
               </span>
             </div>
             <div className="flex justify-between border-t pt-2">
               <span className="text-green-600 font-medium">
-                Contado (-{precios.descuento}%):
+                Contado (-{precios.offContado}%):
               </span>
               <span className="font-bold text-green-600">
                 ${precios.contado.toLocaleString('es-AR')}
@@ -236,7 +237,7 @@ export default function ProductCard({ familia }: ProductCardProps) {
           className="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded transition-colors duration-200 flex items-center justify-center gap-2"
         >
           <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884"/>
+            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884"/>
           </svg>
           Consultar
         </button>
