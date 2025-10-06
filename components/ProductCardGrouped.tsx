@@ -1,4 +1,4 @@
-'use client'
+'use client';
 
 import { useState } from 'react';
 import Image from 'next/image';
@@ -6,6 +6,7 @@ import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { MessageCircle, ImageOff, CreditCard, Banknote, ChevronDown, ChevronUp } from 'lucide-react';
+import { calcularPrecios } from '@/lib/pricing';
 
 interface Variante {
   id: number;
@@ -18,9 +19,7 @@ interface Variante {
 interface ProductCardGroupedProps {
   nombre: string;
   marca_descripcion?: string | null;
-  precio_contado: number;
-  precio_debito: number;
-  precio_regular: number;
+  precio_lista: number;
   imagen_url?: string | null;
   fecha_compra?: string | null;
   variantes: Variante[];
@@ -29,39 +28,32 @@ interface ProductCardGroupedProps {
 export default function ProductCardGrouped({
   nombre,
   marca_descripcion,
-  precio_contado,
-  precio_debito,
-  precio_regular,
+  precio_lista,
   imagen_url,
   fecha_compra,
   variantes,
 }: ProductCardGroupedProps) {
   const [imageError, setImageError] = useState(false);
   const [mostrarPrecios, setMostrarPrecios] = useState(false);
-  
+
+  const { contado, debito, lista, descuento, recargoDeb } = calcularPrecios(precio_lista);
+
   const variantesOrdenadas = [...variantes].sort((a, b) => {
     const tallaA = parseFloat(a.talla || '0');
     const tallaB = parseFloat(b.talla || '0');
     return tallaA - tallaB;
   });
-  
+
   const [varianteSeleccionada, setVarianteSeleccionada] = useState<Variante>(variantesOrdenadas[0]);
-
-  const esNuevo = fecha_compra ? 
-    (new Date().getTime() - new Date(fecha_compra).getTime()) / (1000 * 60 * 60 * 24) < 30 
+  const esNuevo = fecha_compra
+    ? (new Date().getTime() - new Date(fecha_compra).getTime()) / (1000 * 60 * 60 * 24) < 30
     : false;
-
-  const colores = [...new Set(variantes.map(v => v.color).filter(Boolean))];
-  const tallasDisponibles = variantesOrdenadas
-    .filter(v => !v.color || v.color === varianteSeleccionada.color)
-    .map(v => v.talla)
-    .filter(Boolean);
 
   const stockTotal = variantes.reduce((sum, v) => sum + v.stock_disponible, 0);
   const stockBajo = stockTotal <= 5 && stockTotal > 0;
 
-  const whatsappMessage = `Hola! Me interesa el producto:\n*${nombre}*\nCódigo: ${varianteSeleccionada.codigo}${varianteSeleccionada.talla ? `\nTalla: ${varianteSeleccionada.talla}` : ''}${varianteSeleccionada.color ? `\nColor: ${varianteSeleccionada.color}` : ''}\n\nPrecio efectivo: $${precio_contado.toLocaleString('es-AR')}`;
-  const whatsappUrl = `https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_NUMBER}?text=${encodeURIComponent(whatsappMessage)}`;
+  const whatsappMessage = `Hola! Me interesa el producto:\n*${nombre}*\nCódigo: ${varianteSeleccionada.codigo}${varianteSeleccionada.talla ? `\nTalla: ${varianteSeleccionada.talla}` : ''}${varianteSeleccionada.color ? `\nColor: ${varianteSeleccionada.color}` : ''}\n\nPrecio contado: $${contado.toLocaleString('es-AR')}`;
+  const whatsappUrl = `https://wa.me/5491234567890?text=${encodeURIComponent(whatsappMessage)}`;
 
   return (
     <Card className="overflow-hidden hover:shadow-lg transition-shadow duration-300">
@@ -81,13 +73,13 @@ export default function ProductCardGrouped({
             <span className="text-sm">Sin imagen</span>
           </div>
         )}
-        
+
         {esNuevo && (
           <Badge className="absolute top-2 left-2 bg-blue-500">
             ¡Nuevo!
           </Badge>
         )}
-        
+
         {stockBajo && (
           <Badge className="absolute top-2 right-2 bg-orange-500">
             ¡Últimas unidades!
@@ -97,57 +89,9 @@ export default function ProductCardGrouped({
 
       <CardContent className="p-4">
         {marca_descripcion && (
-          <p className="text-sm text-gray-500 font-medium mb-1">
-            {marca_descripcion}
-          </p>
+          <p className="text-sm text-gray-500 font-medium mb-1">{marca_descripcion}</p>
         )}
-
-        <h3 className="font-semibold text-lg mb-3 line-clamp-2">
-          {nombre}
-        </h3>
-
-        {tallasDisponibles.length > 0 && (
-          <div className="mb-3">
-            <p className="text-sm font-medium mb-2">Talla:</p>
-            <div className="flex flex-wrap gap-2">
-              {variantesOrdenadas.map((variante) => (
-                variante.talla && (
-                  <button
-                    key={variante.id}
-                    onClick={() => setVarianteSeleccionada(variante)}
-                    disabled={variante.stock_disponible === 0}
-                    className={`
-                      px-3 py-1 text-sm border rounded transition-colors
-                      ${varianteSeleccionada.id === variante.id 
-                        ? 'bg-primary text-primary-foreground border-primary' 
-                        : 'bg-white hover:bg-gray-50 border-gray-300'
-                      }
-                      ${variante.stock_disponible === 0 
-                        ? 'opacity-50 cursor-not-allowed line-through' 
-                        : 'cursor-pointer'
-                      }
-                    `}
-                  >
-                    {variante.talla}
-                  </button>
-                )
-              ))}
-            </div>
-          </div>
-        )}
-
-        {colores.length > 1 && (
-          <div className="mb-3">
-            <p className="text-sm font-medium mb-2">Color:</p>
-            <div className="flex flex-wrap gap-2">
-              {colores.map((color) => (
-                <Badge key={color} variant="outline" className="text-xs">
-                  {color}
-                </Badge>
-              ))}
-            </div>
-          </div>
-        )}
+        <h3 className="font-semibold text-lg mb-3 line-clamp-2">{nombre}</h3>
 
         <div className="mb-2 bg-green-50 p-3 rounded-lg border border-green-200">
           <div className="flex items-center justify-between mb-1">
@@ -156,15 +100,15 @@ export default function ProductCardGrouped({
               Precio Contado
             </span>
             <span className="text-xs text-green-600 font-medium">
-              5% OFF
+              -{descuento}% OFF
             </span>
           </div>
           <p className="text-3xl font-bold text-green-700">
-            ${precio_contado.toLocaleString('es-AR')}
+            ${contado.toLocaleString('es-AR')}
           </p>
         </div>
 
-        <button 
+        <button
           onClick={() => setMostrarPrecios(!mostrarPrecios)}
           className="w-full text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center justify-center gap-1 py-2 hover:bg-blue-50 rounded transition-colors"
         >
@@ -187,14 +131,11 @@ export default function ProductCardGrouped({
               <div className="flex items-center justify-between mb-1">
                 <span className="text-xs font-medium text-gray-600 flex items-center gap-1">
                   <CreditCard className="h-3.5 w-3.5" />
-                  Débito
-                </span>
-                <span className="text-xs text-gray-500">
-                  +5% costo financiero
+                  Débito (+{recargoDeb}%)
                 </span>
               </div>
               <p className="text-xl font-bold text-gray-800">
-                ${precio_debito.toLocaleString('es-AR')}
+                ${debito.toLocaleString('es-AR')}
               </p>
             </div>
 
@@ -202,30 +143,24 @@ export default function ProductCardGrouped({
               <div className="flex items-center justify-between mb-1">
                 <span className="text-xs font-medium text-gray-600 flex items-center gap-1">
                   <CreditCard className="h-3.5 w-3.5" />
-                  Tarjeta de Crédito
-                </span>
-                <span className="text-xs text-gray-500">
-                  hasta 12 cuotas
+                  Precio Lista
                 </span>
               </div>
               <p className="text-xl font-bold text-gray-800">
-                ${precio_regular.toLocaleString('es-AR')}
-              </p>
-              <p className="text-xs text-gray-500 mt-1">
-                Incluye intereses bancarios. Cuotas disponibles según tu banco.
+                ${lista.toLocaleString('es-AR')}
               </p>
             </div>
           </div>
         )}
 
         <p className="text-sm text-gray-600 mt-3">
-          Stock: {varianteSeleccionada.stock_disponible} {varianteSeleccionada.stock_disponible === 1 ? 'unidad' : 'unidades'}
+          Stock: {varianteSeleccionada.stock_disponible}
         </p>
       </CardContent>
 
       <CardFooter className="p-4 pt-0">
-        <Button 
-          className="w-full bg-green-600 hover:bg-green-700" 
+        <Button
+          className="w-full bg-green-600 hover:bg-green-700"
           onClick={() => window.open(whatsappUrl, '_blank')}
           disabled={varianteSeleccionada.stock_disponible === 0}
         >

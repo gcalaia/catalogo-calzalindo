@@ -1,13 +1,14 @@
 // app/api/productos/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { calcularPrecios } from '@/lib/pricing';
 
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const onlyFilters = searchParams.get('only_filters') === 'true';
 
-    // Si solo piden filtros
+    // ── Solo filtros ────────────────────────────────────────────────────────────
     if (onlyFilters) {
       const [subrubros, marcas, talles] = await Promise.all([
         prisma.producto.findMany({
@@ -50,16 +51,16 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Parámetros de búsqueda
+    // ── Parámetros de búsqueda ─────────────────────────────────────────────────
     const search = searchParams.get('search') || '';
     const subrubro = searchParams.get('subrubro');
     const marca = searchParams.get('marca');
     const talle = searchParams.get('talle');
     const precioMin = searchParams.get('precioMin');
     const precioMax = searchParams.get('precioMax');
-    const limit = parseInt(searchParams.get('limit') || '2000');
+    const limit = parseInt(searchParams.get('limit') || '2000', 10);
 
-    // Construir filtros
+    // ── Filtros ────────────────────────────────────────────────────────────────
     const where: any = {
       stock_disponible: { gt: 0 },
     };
@@ -72,17 +73,9 @@ export async function GET(request: NextRequest) {
       ];
     }
 
-    if (subrubro) {
-      where.subrubro_nombre = subrubro;
-    }
-
-    if (marca) {
-      where.marca_descripcion = marca;
-    }
-
-    if (talle) {
-      where.talla = talle;
-    }
+    if (subrubro) where.subrubro_nombre = subrubro;
+    if (marca) where.marca_descripcion = marca;
+    if (talle) where.talla = talle;
 
     if (precioMin || precioMax) {
       where.precio_lista = {};
@@ -90,18 +83,30 @@ export async function GET(request: NextRequest) {
       if (precioMax) where.precio_lista.lte = parseFloat(precioMax);
     }
 
-    // Query con ordenamiento
+    // ── Query ──────────────────────────────────────────────────────────────────
     const productos = await prisma.producto.findMany({
       where,
-      orderBy: [
-        { createdAt: 'desc' },
-        { nombre: 'asc' },
-      ],
+      orderBy: [{ createdAt: 'desc' }, { nombre: 'asc' }],
       take: limit,
     });
 
-    return NextResponse.json({ productos });
+    // ── Calcular precios comerciales (.999 + coeficientes) ─────────────────────
+    const productosOut = productos.map((p) => {
+      const base = Number(p.precio_lista) || 0;
+      const { lista, contado, debito, descuento, recargoDeb } = calcularPrecios(base);
 
+      return {
+        ...p,
+        // precios calculados (no reemplazo el original por compatibilidad)
+        precio_lista_redondeado: lista,
+        precio_contado: contado,
+        precio_debito: debito,
+        descuento_contado_pct: descuento,   // ~33
+        recargo_debito_pct: recargoDeb,     // ~7
+      };
+    });
+
+    return NextResponse.json({ productos: productosOut });
   } catch (error) {
     console.error('Error fetching productos:', error);
     return NextResponse.json(
