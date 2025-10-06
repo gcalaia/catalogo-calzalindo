@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import ProductCard from '@/components/ProductCard';
-import Header from "@/components/Header"; 
+import Header from "@/components/Header";
+
 interface Producto {
   id: number;
   codigo: number;
@@ -264,171 +265,69 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
+  <div className="min-h-screen bg-gray-50">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="mb-8">
         <Header />
-        </div>
-          
-          {/* Búsqueda */}
-          <div className="mb-4">
-            <input
-              type="text"
-              placeholder="Buscar producto, marca o tipo..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg"
-            />
-          </div>
-
-          {/* Tabs de Rubro */}
-          <div className="bg-white rounded-lg shadow mb-4 overflow-x-auto">
-            <div className="flex border-b">
-              {RUBROS.map((rubro) => (
-                <button
-                  key={rubro.value}
-                  onClick={() => setRubroFilter(rubro.value)}
-                  className={`
-                    px-6 py-4 font-medium transition-colors whitespace-nowrap
-                    ${rubroFilter === rubro.value
-                      ? 'border-b-2 border-blue-600 text-blue-600'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                    }
-                  `}
-                >
-                  {rubro.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Filtros */}
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
-              <select
-                value={subrubroFilter}
-                onChange={(e) => setSubrubroFilter(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">Todos los tipos</option>
-                {subrubrosDisponibles.map(subrubro => (
-                  <option key={subrubro} value={subrubro}>{subrubro}</option>
-                ))}
-              </select>
-              
-              <select
-                value={marcaFilter}
-                onChange={(e) => setMarcaFilter(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">Todas las marcas</option>
-                {marcasDisponibles.map(marca => (
-                  <option key={marca} value={marca}>{marca}</option>
-                ))}
-              </select>
-              
-              <select
-                value={talleFilter}
-                onChange={(e) => setTalleFilter(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">Todos los talles</option>
-                {tallesDisponibles.map(talle => (
-                  <option key={talle} value={talle}>{talle}</option>
-                ))}
-              </select>
-
-              <input
-                type="number"
-                placeholder="Precio mínimo"
-                value={precioMin}
-                onChange={(e) => setPrecioMin(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-              
-              <input
-                type="number"
-                placeholder="Precio máximo"
-                value={precioMax}
-                onChange={(e) => setPrecioMax(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-            
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <label className="text-sm text-gray-600">Ordenar por:</label>
-                <select
-                  value={ordenFilter}
-                  onChange={(e) => setOrdenFilter(e.target.value)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  {ORDEN_OPTIONS.map(opt => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-              </div>
-
-              {(hayFiltrosEspecificos || hayBusqueda || rubroFilter !== 'all') && (
-                <button
-                  onClick={limpiarFiltros}
-                  className="px-4 py-2 text-sm text-blue-600 hover:text-blue-800 underline"
-                >
-                  Limpiar filtros
-                </button>
-              )}
-            </div>
-          </div>
-          
-          {loading && (
-            <div className="text-center py-4">
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-              <p className="mt-2 text-sm text-gray-600">Buscando productos...</p>
-            </div>
-          )}
-          
-          {!loading && familias.length > 0 && (
-            <p className="text-sm text-gray-600 mt-4">
-              Mostrando {familias.length} {familias.length === 1 ? 'familia' : 'familias'} de productos
-            </p>
-          )}
-          
-          {/* Mensaje cuando no hay filtros aplicados */}
-          {!loading && !hayBusqueda && familias.length === 0 && (
-            <div className="text-center py-12 bg-white rounded-lg shadow mt-4">
-              <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-              </svg>
-              <h3 className="mt-2 text-sm font-medium text-gray-900">Buscá tu calzado ideal</h3>
-              <p className="mt-1 text-sm text-gray-500">
-                {rubroFilter !== 'all' 
-                  ? 'Seleccioná tipo de calzado, marca o talle para ver productos' 
-                  : 'Seleccioná un rubro o aplicá filtros para ver los productos'}
-              </p>
-            </div>
-          )}
-        </div>
-
-        {!loading && familias.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {familias.map((familia) => (
-              <ProductCard key={familia.familia_id} familia={familia} />
-            ))}
-          </div>
-        )}
-
-        {error && (
-          <div className="text-center py-12">
-            <p className="text-red-500 text-lg">{error}</p>
-            <button
-              onClick={fetchProductos}
-              className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-            >
-              Reintentar
-            </button>
-          </div>
-        )}
       </div>
+
+      {/* Búsqueda */}
+      <div className="mb-4">
+        {/* ... tu input ... */}
+      </div>
+
+      {/* Tabs de Rubro */}
+      <div className="bg-white rounded-lg shadow mb-4 overflow-x-auto">
+        {/* ... tabs ... */}
+      </div>
+
+      {/* Filtros */}
+      <div className="bg-white rounded-lg shadow p-4">
+        {/* ... filtros ... */}
+      </div>
+
+      {loading && (
+        <div className="text-center py-4">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+          <p className="mt-2 text-sm text-gray-600">Buscando productos...</p>
+        </div>
+      )}
+
+      {!loading && familias.length > 0 && (
+        <p className="text-sm text-gray-600 mt-4">
+          Mostrando {familias.length} {familias.length === 1 ? 'familia' : 'familias'} de productos
+        </p>
+      )}
+
+      {/* Mensaje cuando no hay filtros aplicados */}
+      {!loading && !hayBusqueda && familias.length === 0 && (
+        <div className="text-center py-12 bg-white rounded-lg shadow mt-4">
+          {/* ... mensaje vacío ... */}
+        </div>
+      )}
+
+      {/* GRID de productos (mover adentro del contenedor) */}
+      {!loading && familias.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mt-6">
+          {familias.map((familia) => (
+            <ProductCard key={familia.familia_id} familia={familia} />
+          ))}
+        </div>
+      )}
+
+      {/* Error (también adentro del contenedor) */}
+      {error && (
+        <div className="text-center py-12">
+          <p className="text-red-500 text-lg">{error}</p>
+          <button
+            onClick={fetchProductos}
+            className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            Reintentar
+          </button>
+        </div>
+      )}
     </div>
-  );
+  </div>
+);
 }
