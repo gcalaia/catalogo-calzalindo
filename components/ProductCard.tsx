@@ -29,13 +29,11 @@ interface ProductCardProps {
 }
 
 /** Normaliza la imagen a un "path" relativo a /static/images para usar con /api/img?p=... */
-function toImagePath(imagen_url: string | null): string | null {
-  if (!imagen_url) return null;
-
-  // si ya es relativo (p.ej. "imagenes_macroges/xxx.jpg")
-  if (!/^https?:\/\//i.test(imagen_url)) {
-    return imagen_url.replace(/^\/+/, '');
-  }
+function toPathOrUrl(imagen_url: string | null) {
+  if (!imagen_url) return { u: null, p: null };
+  if (/^https?:\/\//i.test(imagen_url)) return { u: imagen_url, p: null }; // URL completa
+  return { u: null, p: imagen_url.replace(/^\/+/, '') }; // path relativo
+}
 
   // si vino absoluta: extraer lo que está después de /static/images/
   try {
