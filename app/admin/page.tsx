@@ -453,7 +453,7 @@ export default function AdminPage() {
                             {/* Acciones */}
                             <td className="px-6 py-4 whitespace-nowrap text-sm">
                               <a
-                                href={`/?search=${p.codigo}`}
+                                href={`/?search=${encodeURIComponent(p.nombre.split(' ').slice(0, 3).join(' '))}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="text-blue-600 hover:text-blue-800 flex items-center gap-1 underline"
