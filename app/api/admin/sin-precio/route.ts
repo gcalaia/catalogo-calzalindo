@@ -1,15 +1,16 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import prisma from '@/lib/prisma';
 
 export async function GET() {
   try {
-    const productosSinPrecio = await prisma.producto.findMany({
+    const productos = await prisma.producto.findMany({
       where: {
+        stock_disponible: { gt: 0 },
+        // No podemos usar { precio_lista: null } porque el campo no es nullable en el schema.
+        // Consideramos "sin precio" como <= 0
         OR: [
-          { precio_lista: null },
-          { precio_lista: 0 }
+          { precio_lista: { lte: 0 } },
         ],
-        stock_disponible: { gt: 0 }
       },
       select: {
         id: true,
@@ -22,16 +23,17 @@ export async function GET() {
         precio_lista: true,
         familia_id: true,
       },
-      orderBy: { stock_disponible: 'desc' },
-      take: 500
+      orderBy: [{ marca_descripcion: 'asc' }, { nombre: 'asc' }],
     });
 
-    return NextResponse.json({
-      total: productosSinPrecio.length,
-      productos: productosSinPrecio
-    });
-  } catch (error) {
-    console.error('Error:', error);
-    return NextResponse.json({ error: 'Error al buscar productos' }, { status: 500 });
+    // Filtro defensivo por si existieran NULLs en DB aunque el schema no lo permita.
+    const saneados = productos.filter(
+      (p) => (p as any).precio_lista == null || p.precio_lista <= 0
+    );
+
+    return NextResponse.json({ productos: saneados });
+  } catch (err) {
+    console.error('GET /api/admin/sin-precio error:', err);
+    return NextResponse.json({ productos: [] }, { status: 500 });
   }
 }
