@@ -1,4 +1,3 @@
-// components/ProductCard.tsx
 'use client';
 
 import { useState } from 'react';
@@ -6,22 +5,42 @@ import { getColorStyle, isColorDark, getColorHex } from '@/lib/colorMap';
 import { calcularPrecios } from '@/lib/pricing';
 import { useConsulta } from '@/app/contexts/ConsultaContext';
 
-// ... (interfaces igual que antes)
+interface Talle {
+  talla: string;
+  stock: number;
+  codigo: number;
+  precio_lista?: number;
+}
+
+interface Variante {
+  color: string;
+  imagen_url: string | null;
+  codigo: number;
+  talles: Talle[];
+}
+
+interface ProductCardProps {
+  familia: {
+    familia_id: string;
+    nombre: string;
+    marca_descripcion: string | null;
+    rubro: string | null;
+    precio_lista: number;
+    variantes: Variante[];
+  };
+  onImageError?: () => void;
+}
 
 const placeholder = process.env.NEXT_PUBLIC_IMG_PLACEHOLDER || '/no_image.png';
 
-// ⬇️ NUEVO: Función para detectar si estás en red local
 function getImageBaseUrl(): string {
-  // Si estamos en el servidor (SSR), usar la URL pública
   if (typeof window === 'undefined') {
     return process.env.NEXT_PUBLIC_IMAGE_BASE_URL || 
            'https://evirtual.calzalindo.com.ar:58000/clz_ventas/static/images';
   }
 
-  // Si estamos en el navegador, detectar red local
   const hostname = window.location.hostname;
   
-  // Si es localhost o una IP local, usar la URL interna
   if (
     hostname === 'localhost' ||
     hostname.startsWith('192.168.') ||
@@ -32,14 +51,13 @@ function getImageBaseUrl(): string {
            'http://192.168.2.109/clz_ventas/static/images';
   }
 
-  // Sino, usar la URL pública
   return process.env.NEXT_PUBLIC_IMAGE_BASE_URL || 
          'https://evirtual.calzalindo.com.ar:58000/clz_ventas/static/images';
 }
 
 function buildImageUrl(imagen_url: string | null): string {
   if (!imagen_url) return placeholder;
-  if (/^https?:\/\//i.test(imagen_url)) return imagen_url; // Ya es absoluta
+  if (/^https?:\/\//i.test(imagen_url)) return imagen_url;
   
   const baseUrl = getImageBaseUrl();
   return `${baseUrl}/${imagen_url.replace(/^\/+/, '')}`;
@@ -50,33 +68,11 @@ export default function ProductCard({ familia, onImageError }: ProductCardProps)
   const [selectedTalle, setSelectedTalle] = useState<string | null>(null);
   const [showImageModal, setShowImageModal] = useState(false);
   const [showAddedFeedback, setShowAddedFeedback] = useState(false);
-  
-  // ⬇️ NUEVO: trackear qué variantes tienen imágenes rotas
   const [variantesConError, setVariantesConError] = useState<Set<number>>(new Set());
   
   const { addItem } = useConsulta();
 
-  // ⬇️ NUEVO: Filtrar variantes válidas (con imagen)
   const variantesValidas = familia.variantes.filter((_, index) => !variantesConError.has(index));
-
-  // ⬇️ NUEVO: Si no hay variantes válidas, ocultar toda la card
-  useEffect(() => {
-    if (variantesValidas.length === 0 && variantesConError.size > 0) {
-      if (onImageError) {
-        onImageError();
-      }
-    }
-  }, [variantesValidas.length, variantesConError.size, onImageError]);
-
-  // ⬇️ NUEVO: Si la variante seleccionada tiene error, cambiar a la primera válida
-  useEffect(() => {
-    if (variantesConError.has(selectedColor) && variantesValidas.length > 0) {
-      const primerIndiceValido = familia.variantes.findIndex((_, idx) => !variantesConError.has(idx));
-      if (primerIndiceValido !== -1) {
-        setSelectedColor(primerIndiceValido);
-      }
-    }
-  }, [variantesConError, selectedColor, variantesValidas.length, familia.variantes]);
 
   const varianteActual = familia.variantes[selectedColor];
   const imageSrc = buildImageUrl(varianteActual?.imagen_url || null);
@@ -99,10 +95,8 @@ export default function ProductCard({ familia, onImageError }: ProductCardProps)
   const stockTotal = varianteActual?.talles.reduce((sum, t) => sum + t.stock, 0) || 0;
   const esUltimasUnidades = stockTotal > 0 && stockTotal <= 3;
 
-  // ⬇️ MODIFICADO: handler que registra qué variante falló
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>, variantIndex?: number) => {
     e.currentTarget.src = placeholder;
-    
     const indexToMark = variantIndex ?? selectedColor;
     setVariantesConError(prev => new Set(prev).add(indexToMark));
   };
@@ -121,23 +115,22 @@ Precio: $${sel.value.toLocaleString('es-AR')}`;
   };
 
   const handleAgregar = () => {
-  const talle = talleActual?.talla ?? '';  // ⬅️ "talla" con doble L
-  const color = varianteActual?.color ?? '';
-  const id = `${familia.familia_id}-${color}-${talle}-${sel.key}`;
-  addItem({
-    id,
-    nombre: familia.nombre,
-    marca: familia.marca_descripcion,
-    color,
-    talle,
-    precio: sel.value,
-    stock: talleActual?.stock ?? 0,
-  });
-  setShowAddedFeedback(true);
-  setTimeout(() => setShowAddedFeedback(false), 2000);
-};
+    const talle = talleActual?.talla ?? '';
+    const color = varianteActual?.color ?? '';
+    const id = `${familia.familia_id}-${color}-${talle}-${sel.key}`;
+    addItem({
+      id,
+      nombre: familia.nombre,
+      marca: familia.marca_descripcion,
+      color,
+      talle,
+      precio: sel.value,
+      stock: talleActual?.stock ?? 0,
+    });
+    setShowAddedFeedback(true);
+    setTimeout(() => setShowAddedFeedback(false), 2000);
+  };
 
-  // ⬇️ MODIFICADO: Solo ocultar si NO hay variantes válidas
   if (variantesValidas.length === 0) {
     return null;
   }
@@ -200,14 +193,12 @@ Precio: $${sel.value.toLocaleString('es-AR')}`;
           ))}
         </select>
 
-        {/* ⬇️ MODIFICADO: Solo mostrar variantes válidas */}
         {variantesValidas.length > 1 && (
           <div className="mb-3">
             <div className="flex gap-2 items-center flex-wrap mb-2">
               <span className="text-xs text-gray-600">Color:</span>
               <div className="flex gap-2 flex-wrap">
                 {familia.variantes.map((variante, index) => {
-                  // ⬇️ NUEVO: No mostrar botón si la imagen falló
                   if (variantesConError.has(index)) return null;
                   
                   const isSelected = selectedColor === index;
