@@ -600,38 +600,46 @@ export default function AdminPage() {
                               <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">
                                 {p.codigo}
                               </td>
-                              <td className="px-6 py-4 text-sm text-gray-900">{p.nombre}</td>
-                              <td className="px-6 py-4 text-sm text-gray-600">
-                                {p.marca_descripcion || '-'}
-                              </td>
-                              <td className="px-6 py-4 text-sm text-gray-600">{p.rubro || '-'}</td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                <span
-                                  className={`px-2 py-0.5 rounded-full font-medium ${
-                                    isLowStock
-                                      ? 'bg-orange-100 text-orange-700'
-                                      : 'bg-green-100 text-green-700'
-                                  }`}
-                                >
-                                  {p.stock_disponible}
-                                </span>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                ${p.precio_lista.toLocaleString('es-AR')}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm">
+                             <td className="px-6 py-4 text-sm text-gray-900">
+                              <div className="flex flex-wrap gap-1">
+                                {p.talles && p.talles.length > 0 ? (
+                                  <>
+                                    {p.talles.slice(0, 3).map((t, idx) => (
+                                      <span
+                                        key={idx}
+                                        className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800"
+                                      >
+                                        {t.talla} ({t.stock})
+                                      </span>
+                                    ))}
+                                    {p.talles.length > 3 && (
+                                      <span className="text-xs text-gray-500">
+                                        +{p.talles.length - 3} más
+                                      </span>
+                                    )}
+                                  </>
+                                ) : (
+                                  <span className="text-gray-400">-</span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 text-sm text-gray-500 max-w-xs">
+                              {p.imagen_url ? (
                                 
-                                  href={`/?search=${encodeURIComponent(p.nombre.split(' ').slice(0, 2).join(' '))}`}
+                                  href={p.imagen_url}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="text-blue-600 hover:text-blue-800 underline"
+                                  className="text-blue-600 hover:underline truncate block"
+                                  title={p.imagen_url}
                                 >
-                                  Ver catálogo
+                                  Ver URL
                                 </a>
-                              </td>
-                            </tr>
-                          );
-                        })}
+                              ) : (
+                                <span className="text-red-500">Sin URL</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
                       </tbody>
                     </table>
                   </div>
