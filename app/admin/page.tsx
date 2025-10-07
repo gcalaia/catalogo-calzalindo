@@ -16,7 +16,6 @@ interface Producto {
   talla?: string | null;
 }
 
-// ⬇️ NUEVO: Interface para productos sin foto
 interface ProductoSinFoto {
   familia_id: string;
   nombre: string;
@@ -47,7 +46,7 @@ export default function AdminPage() {
 
   const [stats, setStats] = useState<Stats | null>(null);
   const [productos, setProductos] = useState<Producto[]>([]);
-  const [productosSinFoto, setProductosSinFoto] = useState<ProductoSinFoto[]>([]); // ⬅️ NUEVO
+  const [productosSinFoto, setProductosSinFoto] = useState<ProductoSinFoto[]>([]);
   const [loadingData, setLoadingData] = useState(false);
   const [activeSection, setActiveSection] = useState<Section>('sin-foto');
   const [searchTerm, setSearchTerm] = useState('');
@@ -122,13 +121,12 @@ export default function AdminPage() {
       const res = await fetch(endpoints[section]);
       const data = await res.json();
 
-      // ⬇️ NUEVO: Detectar si es la sección sin-foto (formato diferente)
       if (section === 'sin-foto') {
         setProductosSinFoto(data.productos || []);
-        setProductos([]); // Limpiar productos normales
+        setProductos([]);
       } else {
         setProductos(data.productos || []);
-        setProductosSinFoto([]); // Limpiar productos sin foto
+        setProductosSinFoto([]);
       }
     } catch (err) {
       console.error('Error:', err);
@@ -141,7 +139,6 @@ export default function AdminPage() {
     let csv = '';
 
     if (activeSection === 'sin-foto') {
-      // CSV para sin foto
       csv = productosSinFotoFiltrados
         .map(
           (p) =>
@@ -150,7 +147,6 @@ export default function AdminPage() {
         .join('\n');
       csv = `Familia ID,Nombre,Marca,Colores,Talles\n${csv}`;
     } else {
-      // CSV para otras secciones
       csv = productosFiltrados
         .map(
           (p) =>
@@ -182,7 +178,6 @@ export default function AdminPage() {
     );
   });
 
-  // ⬇️ NUEVO: Filtrado para productos sin foto
   const productosSinFotoFiltrados = productosSinFoto.filter((p) => {
     if (!searchTerm) return true;
     const term = searchTerm.toLowerCase();
@@ -420,9 +415,7 @@ export default function AdminPage() {
               </div>
             </div>
 
-            {/* ⬇️ NUEVO: Renderizado condicional según la sección */}
             {activeSection === 'sin-foto' ? (
-              // Tabla para productos sin foto
               productosSinFotoFiltrados.length === 0 ? (
                 <div className="bg-white rounded-lg shadow p-12 text-center">
                   <svg className="mx-auto h-12 w-12 text-green-500 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -544,7 +537,6 @@ export default function AdminPage() {
                 </div>
               )
             ) : (
-              // Tabla para otras secciones (stock bajo, sin precio, sin marca)
               productosFiltrados.length === 0 ? (
                 <div className="bg-white rounded-lg shadow p-12 text-center">
                   <svg className="mx-auto h-12 w-12 text-green-500 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -600,46 +592,38 @@ export default function AdminPage() {
                               <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">
                                 {p.codigo}
                               </td>
-                             <td className="px-6 py-4 text-sm text-gray-900">
-                              <div className="flex flex-wrap gap-1">
-                                {p.talles && p.talles.length > 0 ? (
-                                  <>
-                                    {p.talles.slice(0, 3).map((t, idx) => (
-                                      <span
-                                        key={idx}
-                                        className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800"
-                                      >
-                                        {t.talla} ({t.stock})
-                                      </span>
-                                    ))}
-                                    {p.talles.length > 3 && (
-                                      <span className="text-xs text-gray-500">
-                                        +{p.talles.length - 3} más
-                                      </span>
-                                    )}
-                                  </>
-                                ) : (
-                                  <span className="text-gray-400">-</span>
-                                )}
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 text-sm text-gray-500 max-w-xs">
-                              {p.imagen_url ? (
+                              <td className="px-6 py-4 text-sm text-gray-900">{p.nombre}</td>
+                              <td className="px-6 py-4 text-sm text-gray-600">
+                                {p.marca_descripcion || '-'}
+                              </td>
+                              <td className="px-6 py-4 text-sm text-gray-600">{p.rubro || '-'}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                <span
+                                  className={`px-2 py-0.5 rounded-full font-medium ${
+                                    isLowStock
+                                      ? 'bg-orange-100 text-orange-700'
+                                      : 'bg-green-100 text-green-700'
+                                  }`}
+                                >
+                                  {p.stock_disponible}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                ${p.precio_lista.toLocaleString('es-AR')}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm">
                                 
-                                  href={p.imagen_url}
+                                  href={`/?search=${encodeURIComponent(p.nombre.split(' ').slice(0, 2).join(' '))}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="text-blue-600 hover:underline truncate block"
-                                  title={p.imagen_url}
+                                  className="text-blue-600 hover:text-blue-800 underline"
                                 >
-                                  Ver URL
+                                  Ver catálogo
                                 </a>
-                              ) : (
-                                <span className="text-red-500">Sin URL</span>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
