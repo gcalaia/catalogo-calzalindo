@@ -40,7 +40,6 @@ export default function AdminPage() {
   const [activeSection, setActiveSection] = useState<Section>('sin-foto');
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Verificar autenticación
   useEffect(() => {
     const auth = localStorage.getItem('admin_auth');
     if (auth === 'true') {
@@ -150,7 +149,6 @@ export default function AdminPage() {
     { key: 'sin-marca' as Section, label: 'Sin marca', count: stats?.productosSinMarca, icon: '🏷️', color: 'blue' },
   ];
 
-  // PANTALLA DE LOGIN
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center p-4">
@@ -201,10 +199,8 @@ export default function AdminPage() {
     );
   }
 
-  // PANEL ADMIN
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       <div className="bg-white shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -225,7 +221,6 @@ export default function AdminPage() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         
-        {/* Estadísticas */}
         {stats && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <div className="bg-white rounded-lg shadow p-6">
@@ -280,7 +275,6 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* Tabs */}
         <div className="bg-white rounded-lg shadow mb-6">
           <div className="flex border-b overflow-x-auto">
             {sections.map(section => (
@@ -317,7 +311,6 @@ export default function AdminPage() {
           </div>
         ) : (
           <>
-            {/* Barra de búsqueda y acciones */}
             <div className="bg-white rounded-lg shadow p-4 mb-6">
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="w-full sm:w-auto flex-1">
@@ -348,7 +341,6 @@ export default function AdminPage() {
               </div>
             </div>
 
-            {/* Tabla */}
             {productosFiltrados.length === 0 ? (
               <div className="bg-white rounded-lg shadow p-12 text-center">
                 <svg className="mx-auto h-12 w-12 text-green-500 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -420,16 +412,16 @@ export default function AdminPage() {
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                             ${p.precio_lista.toLocaleString('es-AR')}
                           </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm">
-  
-                                href={`/?search=${encodeURIComponent(p.nombre)}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-blue-600 hover:text-blue-800 underline"
+                          <td className="px-6 py-4 whitespace-nowrap text-sm">
+                            
+                              href={`/?search=${encodeURIComponent(p.nombre)}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:text-blue-800 underline"
                             >
-                                Ver en catálogo →
+                              Ver en catálogo →
                             </a>
-                            </td>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
