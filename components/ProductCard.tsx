@@ -11,12 +11,14 @@ interface Talle {
   codigo: number;
   precio_lista?: number;
 }
+
 interface Variante {
   color: string;
-  imagen_url: string | null; // puede venir relativo o absoluto
+  imagen_url: string | null; // puede venir relativa o absoluta
   codigo: number;
   talles: Talle[];
 }
+
 interface ProductCardProps {
   familia: {
     familia_id: string;
@@ -28,26 +30,13 @@ interface ProductCardProps {
   };
 }
 
-/** Normaliza la imagen a un "path" relativo a /static/images para usar con /api/img?p=... */
-function toPathOrUrl(imagen_url: string | null) {
+/** Normaliza a { u: URL absoluta | null, p: path relativo | null } */
+function toPathOrUrl(imagen_url: string | null): { u: string | null; p: string | null } {
   if (!imagen_url) return { u: null, p: null };
-  if (/^https?:\/\//i.test(imagen_url)) return { u: imagen_url, p: null }; // URL completa
-  return { u: null, p: imagen_url.replace(/^\/+/, '') }; // path relativo
-}
-
-  // si vino absoluta: extraer lo que está después de /static/images/
-  try {
-    const u = new URL(imagen_url);
-    const idx = u.pathname.toLowerCase().indexOf('/static/images/');
-    if (idx >= 0) {
-      return u.pathname.substring(idx + '/static/images/'.length).replace(/^\/+/, '');
-    }
-    // si no encontramos el segmento, devolvemos el filename
-    const parts = u.pathname.split('/');
-    return parts.slice(1).join('/'); // algo conservador
-  } catch {
-    return null;
+  if (/^https?:\/\//i.test(imagen_url)) {
+    return { u: imagen_url, p: null }; // ya viene absoluta
   }
+  return { u: null, p: imagen_url.replace(/^\/+/, '') }; // quitar / inicial si existe
 }
 
 export default function ProductCard({ familia }: ProductCardProps) {
@@ -59,11 +48,17 @@ export default function ProductCard({ familia }: ProductCardProps) {
 
   const varianteActual = familia.variantes[selectedColor];
 
-  // Construimos src via proxy (externo -> interno -> placeholder)
-  const imgPath = toImagePath(varianteActual?.imagen_url || null);
-  const proxiedSrc = imgPath ? `/api/img?p=${encodeURIComponent(imgPath)}` : '/no_image.png';
+  // Imagen via proxy (externo -> interno -> placeholder)
+  const { u, p } = toPathOrUrl(varianteActual?.imagen_url || null);
+  const placeholder = process.env.NEXT_PUBLIC_IMG_PLACEHOLDER || '/no_image.png';
+  const proxiedSrc = u
+    ? `/api/img?u=${encodeURIComponent(u)}`
+    : p
+      ? `/api/img?p=${encodeURIComponent(p)}`
+      : placeholder;
 
   const { lista, contado, debito, offContado, offDebito } = calcularPrecios(familia.precio_lista);
+
   type MedioKey = 'contado' | 'debito' | 'lista';
   const opciones = [
     { key: 'contado' as const, label: `Contado (-${offContado}%)`, value: contado, off: offContado },
@@ -126,15 +121,18 @@ Precio: $${sel.value.toLocaleString('es-AR')}`;
           src={proxiedSrc}
           alt={familia.nombre}
           className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-          // si el proxy también falla por cualquier motivo
-          onError={(e) => { e.currentTarget.src = '/no_image.png'; }}
+          onError={(e) => { e.currentTarget.src = placeholder; }}
           loading="lazy"
         />
       </div>
 
       <div className="p-4">
-        <h3 className="font-semibold text-gray-900 text-sm mb-1 line-clamp-2 h-10">{familia.nombre}</h3>
-        {familia.marca_descripcion && <p className="text-xs text-gray-500 mb-2">{familia.marca_descripcion}</p>}
+        <h3 className="font-semibold text-gray-900 text-sm mb-1 line-clamp-2 h-10">
+          {familia.nombre}
+        </h3>
+        {familia.marca_descripcion && (
+          <p className="text-xs text-gray-500 mb-2">{familia.marca_descripcion}</p>
+        )}
 
         <div className="mb-2 bg-green-50 rounded-lg p-3 border border-green-200">
           <div className="flex items-center justify-between mb-1">
@@ -142,10 +140,14 @@ Precio: $${sel.value.toLocaleString('es-AR')}`;
               Precio {sel.key === 'lista' ? 'de lista' : sel.label.split(' ')[0]}
             </span>
             {sel.off > 0 && (
-              <span className="bg-green-500 text-white text-xs font-bold px-2 py-0.5 rounded">-{sel.off}% OFF</span>
+              <span className="bg-green-500 text-white text-xs font-bold px-2 py-0.5 rounded">
+                -{sel.off}% OFF
+              </span>
             )}
           </div>
-          <p className="text-2xl font-bold text-green-600">${sel.value.toLocaleString('es-AR')}</p>
+          <p className="text-2xl font-bold text-green-600">
+            ${sel.value.toLocaleString('es-AR')}
+          </p>
         </div>
 
         <label className="block text-xs text-gray-700 mb-1">Quiero consultar por:</label>
@@ -180,7 +182,9 @@ Precio: $${sel.value.toLocaleString('es-AR')}`;
                         setSelectedTalle(null);
                       }}
                       className={`w-9 h-9 rounded-full transition-all flex items-center justify-center ${
-                        isSelected ? 'ring-2 ring-blue-500 ring-offset-2 scale-110' : 'ring-1 ring-gray-300 hover:scale-105'
+                        isSelected
+                          ? 'ring-2 ring-blue-500 ring-offset-2 scale-110'
+                          : 'ring-1 ring-gray-300 hover:scale-105'
                       }`}
                       style={colorStyle}
                       title={variante.color}
@@ -201,7 +205,9 @@ Precio: $${sel.value.toLocaleString('es-AR')}`;
                   );
                 })}
               </div>
-              <span className="text-xs font-medium text-gray-800 capitalize">{varianteActual.color.toLowerCase()}</span>
+              <span className="text-xs font-medium text-gray-800 capitalize">
+                {varianteActual.color.toLowerCase()}
+              </span>
             </div>
           </div>
         )}
@@ -215,7 +221,9 @@ Precio: $${sel.value.toLocaleString('es-AR')}`;
                   key={index}
                   onClick={() => setSelectedTalle(talle.talla)}
                   className={`px-3 py-1 text-xs rounded transition-all ${
-                    selectedTalle === talle.talla ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    selectedTalle === talle.talla
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
                 >
                   {talle.talla}
@@ -242,7 +250,7 @@ Precio: $${sel.value.toLocaleString('es-AR')}`;
             className="w-full flex items-center justify-center gap-2 rounded-lg px-6 py-2 border-2 border-green-500 text-green-600 hover:bg-green-50 font-medium transition-all"
           >
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />
+              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
             </svg>
             Consultar ahora
           </button>
@@ -266,11 +274,13 @@ Precio: $${sel.value.toLocaleString('es-AR')}`;
               src={proxiedSrc}
               alt={familia.nombre}
               className="w-full h-auto max-h-[85vh] object-contain rounded-lg"
-              onError={(e) => { e.currentTarget.src = '/no_image.png'; }}
+              onError={(e) => { e.currentTarget.src = placeholder; }}
             />
             <div className="mt-4 text-white text-center">
               <p className="text-lg font-semibold">{familia.nombre}</p>
-              {familia.marca_descripcion && <p className="text-sm text-gray-300">{familia.marca_descripcion}</p>}
+              {familia.marca_descripcion && (
+                <p className="text-sm text-gray-300">{familia.marca_descripcion}</p>
+              )}
             </div>
           </div>
         </div>
