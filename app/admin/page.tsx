@@ -208,7 +208,6 @@ export default function AdminPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Top bar */}
       <div className="bg-white shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -228,7 +227,6 @@ export default function AdminPage() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* KPIs */}
         {stats && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <div className="bg-white rounded-lg shadow p-6">
@@ -294,7 +292,6 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* Sections */}
         <div className="bg-white rounded-lg shadow mb-6">
           <div className="flex border-b overflow-x-auto">
             {sections.map((section) => (
@@ -329,7 +326,6 @@ export default function AdminPage() {
           </div>
         </div>
 
-        {/* Table / Search / Export */}
         {loadingData ? (
           <div className="text-center py-12">
             <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
@@ -421,6 +417,8 @@ export default function AdminPage() {
                     <tbody className="bg-white divide-y divide-gray-200">
                       {productosFiltrados.map((p) => {
                         const isLowStock = p.stock_disponible <= 3;
+                        const searchUrl = `/?search=${encodeURIComponent(p.nombre.split(' ').slice(0, 2).join(' '))}`;
+                        
                         return (
                           <tr key={p.id} className="hover:bg-gray-50">
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">
@@ -431,8 +429,6 @@ export default function AdminPage() {
                               {p.marca_descripcion || '-'}
                             </td>
                             <td className="px-6 py-4 text-sm text-gray-600">{p.rubro || '-'}</td>
-
-                            {/* Stock */}
                             <td className="px-6 py-4 whitespace-nowrap text-sm">
                               <span
                                 className={`px-2 py-0.5 rounded-full font-medium ${
@@ -444,23 +440,19 @@ export default function AdminPage() {
                                 {p.stock_disponible}
                               </span>
                             </td>
-
-                            {/* Precio */}
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                               ${p.precio_lista.toLocaleString('es-AR')}
                             </td>
-
-                            {/* Acciones */}
                             <td className="px-6 py-4 whitespace-nowrap text-sm">
-                            
-                              href={`/?search=${encodeURIComponent(p.nombre.split(' ').slice(0, 2).join(' '))}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-blue-600 hover:text-blue-800 underline"
-                            >
-                              Ver en catálogo
-                            </a>
-                          </td>
+                              
+                                href={searchUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:text-blue-800 underline"
+                              >
+                                Ver en catálogo
+                              </a>
+                            </td>
                           </tr>
                         );
                       })}
