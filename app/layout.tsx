@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ConsultaProvider } from "./contexts/ConsultaContext";
-import ConsultaFloatingButton from "@/components/ConsultaFloatingButton";
+import { ConsultaFloatingButton } from "@/components/ConsultaFloatingButton";
 import "./globals.css";
 import Image from "next/image";
 
