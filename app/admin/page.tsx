@@ -71,7 +71,7 @@ export default function AdminPage() {
       } else {
         setError('Contraseña incorrecta');
       }
-    } catch (err) {
+    } catch {
       setError('Error al autenticar');
     } finally {
       setLoading(false);
@@ -98,7 +98,7 @@ export default function AdminPage() {
     setLoadingData(true);
     setActiveSection(section);
     setSearchTerm('');
-    
+
     try {
       const endpoints: Record<Section, string> = {
         'sin-foto': '/api/admin/productos-sin-foto',
@@ -118,11 +118,16 @@ export default function AdminPage() {
   };
 
   const exportarCSV = () => {
-    const csv = productosFiltrados.map(p => 
-      `${p.codigo},"${p.nombre}","${p.marca_descripcion || ''}",${p.stock_disponible},${p.precio_lista}`
-    ).join('\n');
-    
-    const blob = new Blob([`Codigo,Nombre,Marca,Stock,Precio\n${csv}`], { type: 'text/csv;charset=utf-8;' });
+    const csv = productosFiltrados
+      .map(
+        (p) =>
+          `${p.codigo},"${p.nombre.replace(/"/g, '""')}","${(p.marca_descripcion || '').replace(/"/g, '""')}",${p.stock_disponible},${p.precio_lista}`
+      )
+      .join('\n');
+
+    const blob = new Blob([`Codigo,Nombre,Marca,Stock,Precio\n${csv}`], {
+      type: 'text/csv;charset=utf-8;',
+    });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -131,7 +136,7 @@ export default function AdminPage() {
     URL.revokeObjectURL(url);
   };
 
-  const productosFiltrados = productos.filter(p => {
+  const productosFiltrados = productos.filter((p) => {
     if (!searchTerm) return true;
     const term = searchTerm.toLowerCase();
     return (
@@ -156,8 +161,12 @@ export default function AdminPage() {
           <div className="text-center mb-8">
             <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
               <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                      d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                />
               </svg>
             </div>
             <h1 className="text-2xl font-bold text-gray-900">Panel de Administración</h1>
@@ -166,9 +175,7 @@ export default function AdminPage() {
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Contraseña
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Contraseña</label>
               <input
                 type="password"
                 value={password}
@@ -201,6 +208,7 @@ export default function AdminPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Top bar */}
       <div className="bg-white shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -220,14 +228,16 @@ export default function AdminPage() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        
+        {/* KPIs */}
         {stats && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <div className="bg-white rounded-lg shadow p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600">Total Productos</p>
-                  <p className="text-3xl font-bold text-gray-900 mt-1">{stats.totalProductos.toLocaleString()}</p>
+                  <p className="text-3xl font-bold text-gray-900 mt-1">
+                    {stats.totalProductos.toLocaleString()}
+                  </p>
                 </div>
                 <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
                   <span className="text-2xl">📦</span>
@@ -239,7 +249,9 @@ export default function AdminPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600">Con Stock</p>
-                  <p className="text-3xl font-bold text-green-600 mt-1">{stats.productosConStock.toLocaleString()}</p>
+                  <p className="text-3xl font-bold text-green-600 mt-1">
+                    {stats.productosConStock.toLocaleString()}
+                  </p>
                 </div>
                 <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
                   <span className="text-2xl">✅</span>
@@ -251,7 +263,9 @@ export default function AdminPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600">Familias</p>
-                  <p className="text-3xl font-bold text-purple-600 mt-1">{stats.totalFamilias.toLocaleString()}</p>
+                  <p className="text-3xl font-bold text-purple-600 mt-1">
+                    {stats.totalFamilias.toLocaleString()}
+                  </p>
                 </div>
                 <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
                   <span className="text-2xl">👟</span>
@@ -264,7 +278,12 @@ export default function AdminPage() {
                 <div>
                   <p className="text-sm text-gray-600">Requieren Atención</p>
                   <p className="text-3xl font-bold text-orange-600 mt-1">
-                    {((stats.productosSinFoto || 0) + (stats.productosStockBajo || 0) + (stats.productosSinPrecio || 0) + (stats.productosSinMarca || 0)).toLocaleString()}
+                    {(
+                      (stats.productosSinFoto || 0) +
+                      (stats.productosStockBajo || 0) +
+                      (stats.productosSinPrecio || 0) +
+                      (stats.productosSinMarca || 0)
+                    ).toLocaleString()}
                   </p>
                 </div>
                 <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
@@ -275,9 +294,10 @@ export default function AdminPage() {
           </div>
         )}
 
+        {/* Sections */}
         <div className="bg-white rounded-lg shadow mb-6">
           <div className="flex border-b overflow-x-auto">
-            {sections.map(section => (
+            {sections.map((section) => (
               <button
                 key={section.key}
                 onClick={() => fetchProductos(section.key)}
@@ -289,13 +309,18 @@ export default function AdminPage() {
               >
                 <span>{section.icon}</span>
                 <span>{section.label}</span>
-                {section.count && (
-                  <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-bold ${
-                    section.color === 'red' ? 'bg-red-100 text-red-700' :
-                    section.color === 'orange' ? 'bg-orange-100 text-orange-700' :
-                    section.color === 'yellow' ? 'bg-yellow-100 text-yellow-700' :
-                    'bg-blue-100 text-blue-700'
-                  }`}>
+                {section.count !== undefined && (
+                  <span
+                    className={`ml-2 px-2 py-0.5 rounded-full text-xs font-bold ${
+                      section.color === 'red'
+                        ? 'bg-red-100 text-red-700'
+                        : section.color === 'orange'
+                        ? 'bg-orange-100 text-orange-700'
+                        : section.color === 'yellow'
+                        ? 'bg-yellow-100 text-yellow-700'
+                        : 'bg-blue-100 text-blue-700'
+                    }`}
+                  >
                     {section.count}
                   </span>
                 )}
@@ -304,6 +329,7 @@ export default function AdminPage() {
           </div>
         </div>
 
+        {/* Table / Search / Export */}
         {loadingData ? (
           <div className="text-center py-12">
             <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
@@ -324,7 +350,8 @@ export default function AdminPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-gray-600">
-                    {productosFiltrados.length} {productosFiltrados.length === 1 ? 'producto' : 'productos'}
+                    {productosFiltrados.length}{' '}
+                    {productosFiltrados.length === 1 ? 'producto' : 'productos'}
                   </span>
                   <button
                     onClick={exportarCSV}
@@ -332,8 +359,12 @@ export default function AdminPage() {
                     className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-colors flex items-center gap-2"
                   >
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                            d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                      />
                     </svg>
                     CSV
                   </button>
@@ -344,16 +375,18 @@ export default function AdminPage() {
             {productosFiltrados.length === 0 ? (
               <div className="bg-white rounded-lg shadow p-12 text-center">
                 <svg className="mx-auto h-12 w-12 text-green-500 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
                 </svg>
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">
                   {searchTerm ? 'No se encontraron resultados' : '¡Excelente!'}
                 </h3>
                 <p className="text-gray-600">
-                  {searchTerm 
-                    ? 'Probá con otros términos de búsqueda'
-                    : 'No hay productos en esta categoría'}
+                  {searchTerm ? 'Probá con otros términos de búsqueda' : 'No hay productos en esta categoría'}
                 </p>
               </div>
             ) : (
@@ -393,39 +426,52 @@ export default function AdminPage() {
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">
                               {p.codigo}
                             </td>
-                            <td className="px-6 py-4 text-sm text-gray-900">
-                              {p.nombre}
-                            </td>
+                            <td className="px-6 py-4 text-sm text-gray-900">{p.nombre}</td>
                             <td className="px-6 py-4 text-sm text-gray-600">
                               {p.marca_descripcion || '-'}
                             </td>
-                            <td className="px-6 py-4 text-sm text-gray-600">
-                              {p.rubro || '-'}
-                            </td>
+                            <td className="px-6 py-4 text-sm text-gray-600">{p.rubro || '-'}</td>
+
+                            {/* Stock */}
                             <td className="px-6 py-4 whitespace-nowrap text-sm">
-  
+                              <span
+                                className={`px-2 py-0.5 rounded-full font-medium ${
+                                  isLowStock
+                                    ? 'bg-orange-100 text-orange-700'
+                                    : 'bg-green-100 text-green-700'
+                                }`}
+                              >
+                                {p.stock_disponible}
+                              </span>
+                            </td>
+
+                            {/* Precio */}
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                              ${p.precio_lista.toLocaleString('es-AR')}
+                            </td>
+
+                            {/* Acciones */}
+                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                              <a
                                 href={`/?search=${encodeURIComponent(p.nombre)}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="text-blue-600 hover:text-blue-800 flex items-center gap-1 underline"
-                            >
-                                <span>Ver en catálogo</span>
-                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                                </svg>
-                            </a>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                              ${p.precio_lista.toLocaleString('es-AR')}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm">
-                              
-                                href={`/?search=${encodeURIComponent(p.nombre)}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-blue-600 hover:text-blue-800 underline"
                               >
-                                Ver en catálogo →
+                                <span>Ver en catálogo</span>
+                                <svg
+                                  className="w-4 h-4"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M13 7l5 5m0 0l-5 5m5-5H6"
+                                  />
+                                </svg>
                               </a>
                             </td>
                           </tr>
