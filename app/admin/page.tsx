@@ -331,7 +331,7 @@ export default function AdminPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-gray-600">
-                    {productosFiltrados.length} producto{productosFiltrados.length !== 1 ? 's' : ''}
+                    {productosFiltrados.length} {productosFiltrados.length === 1 ? 'producto' : 'productos'}
                   </span>
                   <button
                     onClick={exportarCSV}
