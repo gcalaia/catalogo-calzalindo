@@ -522,20 +522,20 @@ export default function AdminPage() {
                               </div>
                             </td>
                             <td className="px-6 py-4 text-sm text-gray-500 max-w-xs">
-                              {p.imagen_url ? (
-                                
-                                  href={p.imagen_url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-blue-600 hover:underline truncate block"
-                                  title={p.imagen_url}
-                                >
-                                  Ver URL
-                                </a>
-                              ) : (
-                                <span className="text-red-500">Sin URL</span>
-                              )}
-                            </td>
+                            {p.imagen_url ? (
+                              
+                                href={p.imagen_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:underline truncate block"
+                                title={p.imagen_url}
+                              >
+                                Ver URL
+                              </a>
+                            ) : (
+                              <span className="text-red-500">Sin URL</span>
+                            )}
+                          </td>
                           </tr>
                         ))}
                       </tbody>
