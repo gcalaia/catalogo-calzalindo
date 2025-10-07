@@ -16,12 +16,16 @@ export async function GET() {
       prisma.producto.count({ where: { stock_disponible: { gt: 0 } } }),
       prisma.producto.count({
         where: {
-          OR: [
-            { imagen_url: null },
-            { imagen_url: '' },
-            { imagen_url: { contains: 'no_image.png' } }
-          ],
-          stock_disponible: { gt: 0 }
+          AND: [
+            { stock_disponible: { gt: 0 } },
+            {
+              OR: [
+                { imagen_url: null },
+                { imagen_url: '' },
+                { imagen_url: { contains: 'no_image.png' } }
+              ]
+            }
+          ]
         }
       }),
       prisma.producto.count({
