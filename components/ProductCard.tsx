@@ -120,21 +120,21 @@ Precio: $${sel.value.toLocaleString('es-AR')}`;
   };
 
   const handleAgregar = () => {
-    const talle = talleActual?.talle ?? '';
-    const color = varianteActual?.color ?? '';
-    const id = `${familia.familia_id}-${color}-${talle}-${sel.key}`;
-    addItem({
-      id,
-      nombre: familia.nombre,
-      marca: familia.marca_descripcion,
-      color,
-      talle,
-      precio: sel.value,
-      stock: talleActual?.stock ?? 0,
-    });
-    setShowAddedFeedback(true);
-    setTimeout(() => setShowAddedFeedback(false), 2000);
-  };
+  const talle = talleActual?.talla ?? '';  // ⬅️ "talla" con doble L
+  const color = varianteActual?.color ?? '';
+  const id = `${familia.familia_id}-${color}-${talle}-${sel.key}`;
+  addItem({
+    id,
+    nombre: familia.nombre,
+    marca: familia.marca_descripcion,
+    color,
+    talle,
+    precio: sel.value,
+    stock: talleActual?.stock ?? 0,
+  });
+  setShowAddedFeedback(true);
+  setTimeout(() => setShowAddedFeedback(false), 2000);
+};
 
   // ⬇️ MODIFICADO: Solo ocultar si NO hay variantes válidas
   if (variantesValidas.length === 0) {
