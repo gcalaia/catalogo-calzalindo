@@ -24,6 +24,9 @@ interface ProductoSinFoto {
   imagen_url: string | null;
   colores: string[];
   talles: Array<{ talla: string; stock: number }>;
+  // ⬇️ para la vista stock-bajo
+  stockTotal?: number;
+  stockMinimo?: number;
 }
 
 interface Stats {
@@ -364,39 +367,46 @@ export default function AdminPage() {
             <div className="bg-white rounded-lg shadow overflow-hidden">
               <div className="overflow-x-auto">
                 {(activeSection === 'sin-foto' || activeSection === 'stock-bajo') ? (
-                  <table className="w-full">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Familia</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Producto</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Marca</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Colores</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Talles</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stock Total</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stock Mínimo</th>
-                      </tr>
-                    </thead>
+  <table className="w-full">
+    <thead className="bg-gray-50">
+      <tr>
+        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Familia</th>
+        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Producto</th>
+        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Marca</th>
+        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Colores</th>
+        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Talles</th>
+        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stock Total</th>
+        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stock Mínimo</th>
+      </tr>
+    </thead>
                     <tbody className="divide-y">
-                      {productosSinFotoFiltrados.map((p) => (
-                        <tr key={p.familia_id}>
-                          <td className="px-6 py-4 text-sm">{p.familia_id}</td>
-                          <td className="px-6 py-4 text-sm">{p.nombre}</td>
-                          <td className="px-6 py-4 text-sm">{p.marca || '-'}</td>
-                          <td className="px-6 py-4 text-sm">{p.colores.join(', ') || '-'}</td>
-                          <td className="px-6 py-4 text-sm">{p.talles.map(t => `${t.talla}(${t.stock})`).join(', ')}
-                            <td className="px-6 py-4 text-sm">
-                                  {activeSection === 'stock-bajo' && p.stockTotal ? p.stockTotal : '-'}
-                                </td>
-                                <td className="px-6 py-4 text-sm">
-                                  {activeSection === 'stock-bajo' && p.stockMinimo ? (
-                                    <span className="px-2 py-1 rounded text-xs bg-orange-100 text-orange-700 font-bold">
-                                      {p.stockMinimo}
-                                    </span>
-                                  ) : '-'}
-                                </td>
-                                </tr>
-                      ))}
-                    </tbody>
+  {productosSinFotoFiltrados.map((p) => (
+    <tr key={p.familia_id}>
+      <td className="px-6 py-4 text-sm">{p.familia_id}</td>
+      <td className="px-6 py-4 text-sm">{p.nombre}</td>
+      <td className="px-6 py-4 text-sm">{p.marca || '-'}</td>
+      <td className="px-6 py-4 text-sm">{p.colores.join(', ') || '-'}</td>
+
+      {/* ⬇️ AQUÍ FALTABA CERRAR EL <td> */}
+      <td className="px-6 py-4 text-sm">
+        {p.talles.map(t => `${t.talla}(${t.stock})`).join(', ')}
+      </td>
+
+      {/* columnas extras visibles sólo en stock-bajo */}
+      <td className="px-6 py-4 text-sm">
+        {activeSection === 'stock-bajo' && typeof p.stockTotal === 'number' ? p.stockTotal : '-'}
+      </td>
+      <td className="px-6 py-4 text-sm">
+        {activeSection === 'stock-bajo' && typeof p.stockMinimo === 'number' ? (
+          <span className="px-2 py-1 rounded text-xs bg-orange-100 text-orange-700 font-bold">
+            {p.stockMinimo}
+          </span>
+        ) : '-'}
+      </td>
+    </tr>
+  ))}
+</tbody>
+
                   </table>
                 ) : (
                   <table className="w-full">
