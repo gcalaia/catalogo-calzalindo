@@ -69,20 +69,20 @@ export default function Home() {
   const [tallesDisponibles, setTallesDisponibles] = useState<string[]>([]);
   const [marcasDisponibles, setMarcasDisponibles] = useState<string[]>([]);
 
-  useEffect(() => { fetchFiltros(); }, []);
-  useEffect(() => { fetchFiltrosDinamicos(); }, [rubroFilter, subrubroFilter]);
-
+  // 🔥 LEER PARÁMETRO SEARCH DE LA URL
   useEffect(() => {
-    const hayBusqueda = searchTerm.trim().length > 0;
-    const hayFiltrosEspecificos = subrubroFilter || talleFilter || marcaFilter || precioMin || precioMax;
+  const hayBusqueda = searchTerm.trim().length > 0;
+  const hayFiltrosEspecificos = subrubroFilter || talleFilter || marcaFilter || precioMin || precioMax;
+  const hayRubroSeleccionado = rubroFilter !== 'all';
 
-    if (hayBusqueda || (rubroFilter === 'all' && hayFiltrosEspecificos) || (rubroFilter !== 'all' && hayFiltrosEspecificos)) {
-      const id = setTimeout(fetchProductos, 400);
-      return () => clearTimeout(id);
-    } else {
-      setFamilias([]);
-    }
-  }, [searchTerm, rubroFilter, subrubroFilter, talleFilter, marcaFilter, precioMin, precioMax, ordenFilter]);
+  // 🔥 NUEVA LÓGICA: Buscar si hay búsqueda O si hay filtros específicos O si hay rubro seleccionado
+  if (hayBusqueda || hayFiltrosEspecificos || hayRubroSeleccionado) {
+    const id = setTimeout(fetchProductos, 400);
+    return () => clearTimeout(id);
+  } else {
+    setFamilias([]);
+  }
+}, [searchTerm, rubroFilter, subrubroFilter, talleFilter, marcaFilter, precioMin, precioMax, ordenFilter]);
 
   async function fetchFiltros() {
     try {

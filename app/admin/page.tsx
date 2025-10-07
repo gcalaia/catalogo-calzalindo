@@ -453,13 +453,16 @@ export default function AdminPage() {
                             {/* Acciones */}
                             <td className="px-6 py-4 whitespace-nowrap text-sm">
                               <a
-                                href={`/?search=${encodeURIComponent(p.nombre.split(' ').slice(0, 3).join(' '))}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-blue-600 hover:text-blue-800 flex items-center gap-1 underline"
-                                >
-                                <span>Ver en catálogo</span>
-                                <svg
+                                  href={`/?search=${encodeURIComponent(p.nombre.split(' ').slice(0, 2).join(' '))}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-blue-600 hover:text-blue-800 flex items-center gap-1 underline"
+                                    >
+                                    <span>Ver en catálogo</span>
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                                    </svg>
+                                    </a>
                                   className="w-4 h-4"
                                   fill="none"
                                   viewBox="0 0 24 24"
