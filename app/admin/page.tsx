@@ -420,16 +420,16 @@ export default function AdminPage() {
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                             ${p.precio_lista.toLocaleString('es-AR')}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm">
-                            
-                              href={`/?search=${encodeURIComponent(p.nombre)}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-blue-600 hover:text-blue-800 underline"
+                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+  
+                                href={`/?search=${encodeURIComponent(p.nombre)}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:text-blue-800 underline"
                             >
-                              Ver en catálogo →
+                                Ver en catálogo →
                             </a>
-                          </td>
+                            </td>
                         </tr>
                       ))}
                     </tbody>
