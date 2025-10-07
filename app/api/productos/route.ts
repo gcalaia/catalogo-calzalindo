@@ -1,4 +1,7 @@
 // app/api/productos/route.ts
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
@@ -21,7 +24,6 @@ export async function GET(request: NextRequest) {
     const orden      = sp.get('orden') || 'nuevos';
     const limit      = Math.min(parseInt(sp.get('limit') || '2000', 10), 5000);
 
-    // ===== where base (lo reutilizamos)
     const whereBase: any = {
       stock_disponible: { gt: 0 },
       rubro: { in: RUBROS_VALIDOS as unknown as string[] },
@@ -47,7 +49,7 @@ export async function GET(request: NextRequest) {
       ];
     }
 
-    // 🔥 sólo productos sin foto
+    // Sólo productos sin foto (null/''/placeholder)
     if (sinFoto) {
       whereBase.AND = [
         ...(whereBase.AND || []),
@@ -56,12 +58,15 @@ export async function GET(request: NextRequest) {
             { imagen_url: null },
             { imagen_url: '' },
             { imagen_url: { contains: 'no_image', mode: 'insensitive' } },
+            { imagen_url: { contains: 'no-image', mode: 'insensitive' } },
+            { imagen_url: { contains: 'sin_foto', mode: 'insensitive' } },
+            { imagen_url: { contains: 'sin-foto', mode: 'insensitive' } },
           ],
         },
       ];
     }
 
-    // ===== Sólo filtros
+    // Sólo filtros
     if (onlyFilters) {
       const [subrubros, marcas, talles] = await Promise.all([
         prisma.producto.findMany({
@@ -83,17 +88,10 @@ export async function GET(request: NextRequest) {
 
       return NextResponse.json({
         filtros: {
-          subrubros: subrubros
-            .map(s => s.subrubro_nombre)
-            .filter((s): s is string => s !== null)
-            .sort(),
-          marcas: marcas
-            .map(m => m.marca_descripcion)
-            .filter((m): m is string => m !== null)
-            .sort(),
+          subrubros: subrubros.map(s => s.subrubro_nombre!).sort(),
+          marcas: marcas.map(m => m.marca_descripcion!).sort(),
           talles: talles
-            .map(t => t.talla)
-            .filter((t): t is string => t !== null)
+            .map(t => t.talla!)
             .sort((a, b) => {
               const A = parseFloat(a), B = parseFloat(b);
               return isNaN(A) || isNaN(B) ? a.localeCompare(b) : A - B;
@@ -102,27 +100,15 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // ===== Orden
-    // Si no tenés createdAt en el modelo, cambiá por { id: 'desc' }
+    // Orden
     let orderBy: any[] = [];
     switch (orden) {
-      case 'stock_asc':
-        orderBy = [{ stock_disponible: 'asc' }, { id: 'desc' }];
-        break;
+      case 'stock_asc':  orderBy = [{ stock_disponible: 'asc' }, { id: 'desc' }]; break;
+      case 'precio_asc': orderBy = [{ precio_lista: 'asc' }, { id: 'desc' }]; break;
+      case 'precio_desc':orderBy = [{ precio_lista: 'desc' }, { id: 'desc' }]; break;
+      case 'nombre':     orderBy = [{ nombre: 'asc' }, { id: 'desc' }]; break;
       case 'nuevos':
-        orderBy = [{ id: 'desc' }]; // usa createdAt si existe
-        break;
-      case 'precio_asc':
-        orderBy = [{ precio_lista: 'asc' }, { id: 'desc' }];
-        break;
-      case 'precio_desc':
-        orderBy = [{ precio_lista: 'desc' }, { id: 'desc' }];
-        break;
-      case 'nombre':
-        orderBy = [{ nombre: 'asc' }, { id: 'desc' }];
-        break;
-      default:
-        orderBy = [{ id: 'desc' }];
+      default:           orderBy = [{ id: 'desc' }];
     }
 
     const productos = await prisma.producto.findMany({
