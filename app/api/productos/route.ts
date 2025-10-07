@@ -21,11 +21,36 @@ export async function GET(request: NextRequest) {
     const precioMax  = sp.get('precioMax');
     const orden      = sp.get('orden') || 'nuevos';
     const limit      = Math.min(parseInt(sp.get('limit') || '2000', 10), 5000);
+    
+    // ⬇️ NUEVO: detectar si viene desde admin o si quiere ver "sin foto"
+    const soloSinFoto = sp.get('sinFoto') === '1';
 
     const whereBase: any = {
       stock_disponible: { gt: 0 },
       rubro: { in: RUBROS_VALIDOS as unknown as string[] },
     };
+
+    // ⬇️ NUEVO: filtro de imagen
+    if (soloSinFoto) {
+      // Si está activado el toggle "sólo sin foto" → mostrar SOLO los que no tienen
+      whereBase.OR = [
+        { imagen_url: null },
+        { imagen_url: '' },
+        { imagen_url: 'no_image.png' },
+        { imagen_url: { contains: 'no_image' } }
+      ];
+    } else {
+      // ✅ Catálogo normal: EXCLUIR productos sin imagen
+      whereBase.NOT = {
+        OR: [
+          { imagen_url: null },
+          { imagen_url: '' },
+          { imagen_url: 'no_image.png' },
+          { imagen_url: { contains: 'no_image' } }
+        ]
+      };
+    }
+
     if (rubro && rubro !== 'all') whereBase.rubro = rubro;
     if (subrubro) whereBase.subrubro_nombre = subrubro;
     if (marca) whereBase.marca_descripcion = marca;
@@ -36,12 +61,15 @@ export async function GET(request: NextRequest) {
       if (precioMax) whereBase.precio_lista.lte = Number(precioMax);
     }
     if (search) {
-      whereBase.OR = [
-        { nombre: { contains: search, mode: 'insensitive' } },
-        { marca_descripcion: { contains: search, mode: 'insensitive' } },
-        { rubro: { contains: search, mode: 'insensitive' } },
-        { subrubro_nombre: { contains: search, mode: 'insensitive' } },
-      ];
+      whereBase.AND = whereBase.AND || [];
+      whereBase.AND.push({
+        OR: [
+          { nombre: { contains: search, mode: 'insensitive' } },
+          { marca_descripcion: { contains: search, mode: 'insensitive' } },
+          { rubro: { contains: search, mode: 'insensitive' } },
+          { subrubro_nombre: { contains: search, mode: 'insensitive' } },
+        ]
+      });
     }
 
     if (onlyFilters) {
