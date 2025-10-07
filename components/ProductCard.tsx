@@ -38,8 +38,22 @@ export default function ProductCard({ familia }: ProductCardProps) {
   const [showAddedFeedback, setShowAddedFeedback] = useState(false);
   const { addItem } = useConsulta();
 
-  const imageBaseUrl = process.env.NEXT_PUBLIC_IMAGE_BASE_URL || 
-    'https://evirtual.calzalindo.com.ar:58000/clz_ventas/static/images';
+  // 🔥 DETECCIÓN AUTOMÁTICA DE URL DE IMÁGENES
+  const getImageBaseUrl = () => {
+    if (typeof window === 'undefined') return 'https://evirtual.calzalindo.com.ar:58000/clz_ventas/static/images';
+    
+    const hostname = window.location.hostname;
+    
+    // Red local (192.168.x.x, 10.x.x.x, localhost)
+    if (hostname.startsWith('192.168.') || hostname.startsWith('10.') || hostname === 'localhost') {
+      return `http://${hostname}/clz_ventas/static/images`;
+    }
+    
+    // Producción
+    return 'https://evirtual.calzalindo.com.ar:58000/clz_ventas/static/images';
+  };
+
+  const imageBaseUrl = getImageBaseUrl();
 
   const varianteActual = familia.variantes[selectedColor];
   
