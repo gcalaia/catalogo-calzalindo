@@ -35,12 +35,12 @@ export async function GET() {
       }),
       prisma.producto.count({
         where: {
-          OR: [
-            { precio_lista: null },
-            { precio_lista: 0 }
-          ],
-          stock_disponible: { gt: 0 }
-        }
+        OR: [
+            { precio_lista: { lte: 0 } }
+        ],
+        stock_disponible: { gt: 0 }
+        },
+
       }),
       prisma.producto.count({
         where: {
