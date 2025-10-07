@@ -1,3 +1,4 @@
+// app/page.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -65,29 +66,37 @@ export default function Home() {
   const [precioMax, setPrecioMax] = useState('');
   const [ordenFilter, setOrdenFilter] = useState('nuevos');
 
+  // ⬇️ NUEVO: toggle para productos sin foto
+  const [soloSinFoto, setSoloSinFoto] = useState(false);
+
   const [subrubrosDisponibles, setSubrubrosDisponibles] = useState<string[]>([]);
   const [tallesDisponibles, setTallesDisponibles] = useState<string[]>([]);
   const [marcasDisponibles, setMarcasDisponibles] = useState<string[]>([]);
 
-  // 🔥 LEER PARÁMETRO SEARCH DE LA URL
-  useEffect(() => {
-  const hayBusqueda = searchTerm.trim().length > 0;
-  const hayFiltrosEspecificos = subrubroFilter || talleFilter || marcaFilter || precioMin || precioMax;
-  const hayRubroSeleccionado = rubroFilter !== 'all';
+  // filtros iniciales
+  useEffect(() => { fetchFiltros(); }, []);
 
-  // 🔥 NUEVA LÓGICA: Buscar si hay búsqueda O si hay filtros específicos O si hay rubro seleccionado
-  if (hayBusqueda || hayFiltrosEspecificos || hayRubroSeleccionado) {
-    const id = setTimeout(fetchProductos, 400);
-    return () => clearTimeout(id);
-  } else {
-    setFamilias([]);
-  }
-}, [searchTerm, rubroFilter, subrubroFilter, talleFilter, marcaFilter, precioMin, precioMax, ordenFilter]);
+  // filtros dinámicos
+  useEffect(() => { fetchFiltrosDinamicos(); }, [rubroFilter, subrubroFilter]);
+
+  // búsqueda de productos
+  useEffect(() => {
+    const hayBusqueda = searchTerm.trim().length > 0;
+    const hayFiltrosEspecificos =
+      subrubroFilter || talleFilter || marcaFilter || precioMin || precioMax || soloSinFoto; // ⬅️ incluir toggle
+
+    if (hayBusqueda || (rubroFilter === 'all' && hayFiltrosEspecificos) || (rubroFilter !== 'all' && hayFiltrosEspecificos)) {
+      const id = setTimeout(fetchProductos, 400);
+      return () => clearTimeout(id);
+    } else {
+      setFamilias([]);
+    }
+  }, [searchTerm, rubroFilter, subrubroFilter, talleFilter, marcaFilter, precioMin, precioMax, ordenFilter, soloSinFoto]);
 
   async function fetchFiltros() {
     try {
       setLoadingFilters(true);
-      const res = await fetch('/api/productos?only_filters=true');
+      const res = await fetch('/api/productos?only_filters=true', { cache: 'no-store' });
       if (!res.ok) throw new Error('Error al cargar filtros');
       const data = await res.json();
       setSubrubrosDisponibles(data.filtros.subrubros || []);
@@ -106,7 +115,7 @@ export default function Home() {
       if (rubroFilter !== 'all') params.append('rubro', rubroFilter);
       if (subrubroFilter) params.append('subrubro', subrubroFilter);
 
-      const res = await fetch(`/api/productos?${params.toString()}`);
+      const res = await fetch(`/api/productos?${params.toString()}`, { cache: 'no-store' });
       if (!res.ok) return;
 
       const data = await res.json();
@@ -132,9 +141,10 @@ export default function Home() {
       if (precioMin) params.append('precioMin', precioMin);
       if (precioMax) params.append('precioMax', precioMax);
       if (ordenFilter) params.append('orden', ordenFilter);
+      if (soloSinFoto) params.append('sinFoto', '1'); // ⬅️ clave para la API
       params.append('limit', '2000');
 
-      const res = await fetch(`/api/productos?${params.toString()}`);
+      const res = await fetch(`/api/productos?${params.toString()}`, { cache: 'no-store' });
       if (!res.ok) throw new Error('Error al cargar productos');
 
       const data = await res.json();
@@ -198,10 +208,12 @@ export default function Home() {
     setMarcaFilter('');
     setPrecioMin('');
     setPrecioMax('');
+    setSoloSinFoto(false); // ⬅️ reset toggle
   }
 
   const hayBusqueda = searchTerm.trim().length > 0;
-  const hayFiltrosEspecificos = subrubroFilter || marcaFilter || talleFilter || precioMin || precioMax;
+  const hayFiltrosEspecificos =
+    subrubroFilter || marcaFilter || talleFilter || precioMin || precioMax || soloSinFoto;
 
   if (loadingFilters) {
     return (
@@ -218,6 +230,7 @@ export default function Home() {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
+        {/* Búsqueda */}
         <div className="mb-4">
           <input
             type="text"
@@ -228,6 +241,7 @@ export default function Home() {
           />
         </div>
 
+        {/* Tabs de rubro */}
         <div className="bg-white rounded-lg shadow mb-4 overflow-x-auto">
           <div className="flex border-b">
             {RUBROS.map(r => (
@@ -246,8 +260,9 @@ export default function Home() {
           </div>
         </div>
 
+        {/* Filtros */}
         <div className="bg-white rounded-lg shadow p-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 mb-4">
             <select
               value={subrubroFilter}
               onChange={(e) => setSubrubroFilter(e.target.value)}
@@ -295,31 +310,41 @@ export default function Home() {
               onChange={(e) => setPrecioMax(e.target.value)}
               className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
+
+            {/* ⬇️ NUEVO: toggle sólo sin foto */}
+            <label className="flex items-center gap-2 px-2">
+              <input
+                type="checkbox"
+                checked={soloSinFoto}
+                onChange={(e) => setSoloSinFoto(e.target.checked)}
+              />
+              <span className="text-sm text-gray-700">Sólo sin foto</span>
+            </label>
           </div>
 
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <label className="text-sm text-gray-600">Ordenar por:</label>
-              <select
-                value={ordenFilter}
-                onChange={(e) => setOrdenFilter(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                {ORDEN_OPTIONS.map(o => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
-              </select>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <label className="text-sm text-gray-600">Ordenar por:</label>
+                <select
+                  value={ordenFilter}
+                  onChange={(e) => setOrdenFilter(e.target.value)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  {ORDEN_OPTIONS.map(o => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              {(hayFiltrosEspecificos || hayBusqueda || rubroFilter !== 'all') && (
+                <button
+                  onClick={limpiarFiltros}
+                  className="px-4 py-2 text-sm text-blue-600 hover:text-blue-800 underline"
+                >
+                  Limpiar filtros
+                </button>
+              )}
             </div>
-
-            {(hayFiltrosEspecificos || hayBusqueda || rubroFilter !== 'all') && (
-              <button
-                onClick={limpiarFiltros}
-                className="px-4 py-2 text-sm text-blue-600 hover:text-blue-800 underline"
-              >
-                Limpiar filtros
-              </button>
-            )}
-          </div>
         </div>
 
         {loading && (

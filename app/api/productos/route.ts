@@ -10,17 +10,15 @@ const RUBROS_VALIDOS = ['DAMAS', 'HOMBRES', 'NIÑOS', 'NIÑAS', 'UNISEX'] as con
 export async function GET(request: NextRequest) {
   try {
     const sp = request.nextUrl.searchParams;
-
     const onlyFilters = sp.get('only_filters') === 'true';
-    const sinFoto    = sp.get('sinFoto') === '1';
 
+    const search     = sp.get('search') || '';
     const rubro      = sp.get('rubro');
     const subrubro   = sp.get('subrubro');
     const marca      = sp.get('marca');
     const talle      = sp.get('talle');
     const precioMin  = sp.get('precioMin');
     const precioMax  = sp.get('precioMax');
-    const search     = sp.get('search') || '';
     const orden      = sp.get('orden') || 'nuevos';
     const limit      = Math.min(parseInt(sp.get('limit') || '2000', 10), 5000);
 
@@ -28,18 +26,15 @@ export async function GET(request: NextRequest) {
       stock_disponible: { gt: 0 },
       rubro: { in: RUBROS_VALIDOS as unknown as string[] },
     };
-
     if (rubro && rubro !== 'all') whereBase.rubro = rubro;
     if (subrubro) whereBase.subrubro_nombre = subrubro;
     if (marca) whereBase.marca_descripcion = marca;
     if (talle) whereBase.talla = talle;
-
     if (precioMin || precioMax) {
       whereBase.precio_lista = {};
       if (precioMin) whereBase.precio_lista.gte = Number(precioMin);
       if (precioMax) whereBase.precio_lista.lte = Number(precioMax);
     }
-
     if (search) {
       whereBase.OR = [
         { nombre: { contains: search, mode: 'insensitive' } },
@@ -49,49 +44,31 @@ export async function GET(request: NextRequest) {
       ];
     }
 
-    // Sólo productos sin foto (null/''/placeholder)
-    if (sinFoto) {
-      whereBase.AND = [
-        ...(whereBase.AND || []),
-        {
-          OR: [
-            { imagen_url: null },
-            { imagen_url: '' },
-            { imagen_url: { contains: 'no_image', mode: 'insensitive' } },
-            { imagen_url: { contains: 'no-image', mode: 'insensitive' } },
-            { imagen_url: { contains: 'sin_foto', mode: 'insensitive' } },
-            { imagen_url: { contains: 'sin-foto', mode: 'insensitive' } },
-          ],
-        },
-      ];
-    }
-
-    // Sólo filtros
     if (onlyFilters) {
       const [subrubros, marcas, talles] = await Promise.all([
-        prisma.producto.findMany({
-          select: { subrubro_nombre: true },
+        prisma.producto.groupBy({
+          by: ['subrubro_nombre'],
           where: { ...whereBase, subrubro_nombre: { not: null } },
-          distinct: ['subrubro_nombre'],
+          _count: { _all: true },
         }),
-        prisma.producto.findMany({
-          select: { marca_descripcion: true },
+        prisma.producto.groupBy({
+          by: ['marca_descripcion'],
           where: { ...whereBase, marca_descripcion: { not: null } },
-          distinct: ['marca_descripcion'],
+          _count: { _all: true },
         }),
-        prisma.producto.findMany({
-          select: { talla: true },
+        prisma.producto.groupBy({
+          by: ['talla'],
           where: { ...whereBase, talla: { not: null } },
-          distinct: ['talla'],
+          _count: { _all: true },
         }),
       ]);
 
       return NextResponse.json({
         filtros: {
-          subrubros: subrubros.map(s => s.subrubro_nombre!).sort(),
-          marcas: marcas.map(m => m.marca_descripcion!).sort(),
+          subrubros: subrubros.map(s => s.subrubro_nombre as string).filter(Boolean).sort(),
+          marcas: marcas.map(m => m.marca_descripcion as string).filter(Boolean).sort(),
           talles: talles
-            .map(t => t.talla!)
+            .map(t => t.talla as string).filter(Boolean)
             .sort((a, b) => {
               const A = parseFloat(a), B = parseFloat(b);
               return isNaN(A) || isNaN(B) ? a.localeCompare(b) : A - B;
@@ -100,7 +77,6 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Orden
     let orderBy: any[] = [];
     switch (orden) {
       case 'stock_asc':  orderBy = [{ stock_disponible: 'asc' }, { id: 'desc' }]; break;
@@ -124,8 +100,8 @@ export async function GET(request: NextRequest) {
     });
 
     return NextResponse.json({ productos });
-  } catch (error) {
-    console.error('Error fetching productos:', error);
+  } catch (e) {
+    console.error('GET /api/productos', e);
     return NextResponse.json({ error: 'Error al cargar productos' }, { status: 500 });
   }
 }
