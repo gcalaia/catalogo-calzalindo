@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { getColorStyle, isColorDark, getColorHex } from '@/lib/colorMap';
 import { calcularPrecios } from '@/lib/pricing';
 import { useConsulta } from '@/app/contexts/ConsultaContext';
@@ -28,7 +28,7 @@ interface ProductCardProps {
     precio_lista: number;
     variantes: Variante[];
   };
-  onImageError?: () => void; // ⬅️ NUEVO
+  onImageError?: () => void;
 }
 
 const placeholder =
@@ -49,8 +49,33 @@ export default function ProductCard({ familia, onImageError }: ProductCardProps)
   const [selectedTalle, setSelectedTalle] = useState<string | null>(null);
   const [showImageModal, setShowImageModal] = useState(false);
   const [showAddedFeedback, setShowAddedFeedback] = useState(false);
-  const [imageError, setImageError] = useState(false); // ⬅️ NUEVO
+  
+  // ⬇️ NUEVO: trackear qué variantes tienen imágenes rotas
+  const [variantesConError, setVariantesConError] = useState<Set<number>>(new Set());
+  
   const { addItem } = useConsulta();
+
+  // ⬇️ NUEVO: Filtrar variantes válidas (con imagen)
+  const variantesValidas = familia.variantes.filter((_, index) => !variantesConError.has(index));
+
+  // ⬇️ NUEVO: Si no hay variantes válidas, ocultar toda la card
+  useEffect(() => {
+    if (variantesValidas.length === 0 && variantesConError.size > 0) {
+      if (onImageError) {
+        onImageError();
+      }
+    }
+  }, [variantesValidas.length, variantesConError.size, onImageError]);
+
+  // ⬇️ NUEVO: Si la variante seleccionada tiene error, cambiar a la primera válida
+  useEffect(() => {
+    if (variantesConError.has(selectedColor) && variantesValidas.length > 0) {
+      const primerIndiceValido = familia.variantes.findIndex((_, idx) => !variantesConError.has(idx));
+      if (primerIndiceValido !== -1) {
+        setSelectedColor(primerIndiceValido);
+      }
+    }
+  }, [variantesConError, selectedColor, variantesValidas.length, familia.variantes]);
 
   const varianteActual = familia.variantes[selectedColor];
   const imageSrc = buildImageUrl(varianteActual?.imagen_url || null);
@@ -73,16 +98,12 @@ export default function ProductCard({ familia, onImageError }: ProductCardProps)
   const stockTotal = varianteActual?.talles.reduce((sum, t) => sum + t.stock, 0) || 0;
   const esUltimasUnidades = stockTotal > 0 && stockTotal <= 3;
 
-  // ⬇️ NUEVO: handler mejorado para errores de imagen
-  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>) => {
+  // ⬇️ MODIFICADO: handler que registra qué variante falló
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>, variantIndex?: number) => {
     e.currentTarget.src = placeholder;
-    if (!imageError) {
-      setImageError(true);
-      // Notificar al padre después de un pequeño delay
-      if (onImageError) {
-        setTimeout(() => onImageError(), 100);
-      }
-    }
+    
+    const indexToMark = variantIndex ?? selectedColor;
+    setVariantesConError(prev => new Set(prev).add(indexToMark));
   };
 
   const handleWhatsApp = () => {
@@ -99,7 +120,7 @@ Precio: $${sel.value.toLocaleString('es-AR')}`;
   };
 
   const handleAgregar = () => {
-    const talle = talleActual?.talla ?? '';
+    const talle = talleActual?.talle ?? '';
     const color = varianteActual?.color ?? '';
     const id = `${familia.familia_id}-${color}-${talle}-${sel.key}`;
     addItem({
@@ -115,8 +136,8 @@ Precio: $${sel.value.toLocaleString('es-AR')}`;
     setTimeout(() => setShowAddedFeedback(false), 2000);
   };
 
-  // ⬇️ NUEVO: Si la imagen falló, no renderizar la card
-  if (imageError) {
+  // ⬇️ MODIFICADO: Solo ocultar si NO hay variantes válidas
+  if (variantesValidas.length === 0) {
     return null;
   }
 
@@ -136,7 +157,7 @@ Precio: $${sel.value.toLocaleString('es-AR')}`;
           src={imageSrc}
           alt={familia.nombre}
           className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-          onError={handleImageError}
+          onError={(e) => handleImageError(e, selectedColor)}
           loading="lazy"
         />
       </div>
@@ -178,12 +199,16 @@ Precio: $${sel.value.toLocaleString('es-AR')}`;
           ))}
         </select>
 
-        {familia.variantes.length > 1 && (
+        {/* ⬇️ MODIFICADO: Solo mostrar variantes válidas */}
+        {variantesValidas.length > 1 && (
           <div className="mb-3">
             <div className="flex gap-2 items-center flex-wrap mb-2">
               <span className="text-xs text-gray-600">Color:</span>
               <div className="flex gap-2 flex-wrap">
                 {familia.variantes.map((variante, index) => {
+                  // ⬇️ NUEVO: No mostrar botón si la imagen falló
+                  if (variantesConError.has(index)) return null;
+                  
                   const isSelected = selectedColor === index;
                   const colorStyle = getColorStyle(variante.color);
                   const hexColor = getColorHex(variante.color);
@@ -246,7 +271,8 @@ Precio: $${sel.value.toLocaleString('es-AR')}`;
                 </button>
               ))}
             </div>
-          </div>)}
+          </div>
+        )}
 
         <div className="space-y-2">
           <button
@@ -288,7 +314,7 @@ Precio: $${sel.value.toLocaleString('es-AR')}`;
               src={imageSrc}
               alt={familia.nombre}
               className="w-full h-auto max-h-[85vh] object-contain rounded-lg"
-              onError={handleImageError}
+              onError={(e) => handleImageError(e, selectedColor)}
             />
             <div className="mt-4 text-white text-center">
               <p className="text-lg font-semibold">{familia.nombre}</p>
