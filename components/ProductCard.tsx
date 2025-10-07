@@ -50,13 +50,16 @@ export default function ProductCard({ familia }: ProductCardProps) {
 
   // Imagen via proxy (externo -> interno -> placeholder)
   const { u, p } = toPathOrUrl(varianteActual?.imagen_url || null);
-  const placeholder = process.env.NEXT_PUBLIC_IMG_PLACEHOLDER || '/no_image.png';
-  const proxiedSrc = u
-    ? `/api/img?u=${encodeURIComponent(u)}`
-    : p
-      ? `/api/img?p=${encodeURIComponent(p)}`
-      : placeholder;
+  // helper: usa la URL de la DB; si es relativa, la completa con BASE; si falta, placeholder
+const placeholder = process.env.NEXT_PUBLIC_IMG_PLACEHOLDER || '/no_image.png';
+const IMG_BASE = process.env.NEXT_PUBLIC_IMAGE_BASE_URL
+  || 'https://evirtual.calzalindo.com.ar:58000/clz_ventas/static/images';
 
+function buildImageUrl(imagen_url: string | null): string {
+  if (!imagen_url) return placeholder;
+  if (/^https?:\/\//i.test(imagen_url)) return imagen_url;        // ya es absoluta (la DB)
+  return `${IMG_BASE}/${imagen_url.replace(/^\/+/, '')}`;         // relativa -> completamos
+}
   const { lista, contado, debito, offContado, offDebito } = calcularPrecios(familia.precio_lista);
 
   type MedioKey = 'contado' | 'debito' | 'lista';
