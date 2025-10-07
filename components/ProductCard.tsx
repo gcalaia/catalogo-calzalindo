@@ -1,47 +1,48 @@
+// components/ProductCard.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { getColorStyle, isColorDark, getColorHex } from '@/lib/colorMap';
 import { calcularPrecios } from '@/lib/pricing';
 import { useConsulta } from '@/app/contexts/ConsultaContext';
 
-interface Talle {
-  talla: string;
-  stock: number;
-  codigo: number;
-  precio_lista?: number;
+// ... (interfaces igual que antes)
+
+const placeholder = process.env.NEXT_PUBLIC_IMG_PLACEHOLDER || '/no_image.png';
+
+// ⬇️ NUEVO: Función para detectar si estás en red local
+function getImageBaseUrl(): string {
+  // Si estamos en el servidor (SSR), usar la URL pública
+  if (typeof window === 'undefined') {
+    return process.env.NEXT_PUBLIC_IMAGE_BASE_URL || 
+           'https://evirtual.calzalindo.com.ar:58000/clz_ventas/static/images';
+  }
+
+  // Si estamos en el navegador, detectar red local
+  const hostname = window.location.hostname;
+  
+  // Si es localhost o una IP local, usar la URL interna
+  if (
+    hostname === 'localhost' ||
+    hostname.startsWith('192.168.') ||
+    hostname.startsWith('10.') ||
+    hostname.startsWith('172.')
+  ) {
+    return process.env.NEXT_PUBLIC_IMG_BASE_INTERNAL || 
+           'http://192.168.2.109/clz_ventas/static/images';
+  }
+
+  // Sino, usar la URL pública
+  return process.env.NEXT_PUBLIC_IMAGE_BASE_URL || 
+         'https://evirtual.calzalindo.com.ar:58000/clz_ventas/static/images';
 }
-
-interface Variante {
-  color: string;
-  imagen_url: string | null;
-  codigo: number;
-  talles: Talle[];
-}
-
-interface ProductCardProps {
-  familia: {
-    familia_id: string;
-    nombre: string;
-    marca_descripcion: string | null;
-    rubro: string | null;
-    precio_lista: number;
-    variantes: Variante[];
-  };
-  onImageError?: () => void;
-}
-
-const placeholder =
-  process.env.NEXT_PUBLIC_IMG_PLACEHOLDER || '/no_image.png';
-
-const IMG_BASE =
-  process.env.NEXT_PUBLIC_IMAGE_BASE_URL ||
-  'https://evirtual.calzalindo.com.ar:58000/clz_ventas/static/images';
 
 function buildImageUrl(imagen_url: string | null): string {
   if (!imagen_url) return placeholder;
-  if (/^https?:\/\//i.test(imagen_url)) return imagen_url;
-  return `${IMG_BASE}/${imagen_url.replace(/^\/+/, '')}`;
+  if (/^https?:\/\//i.test(imagen_url)) return imagen_url; // Ya es absoluta
+  
+  const baseUrl = getImageBaseUrl();
+  return `${baseUrl}/${imagen_url.replace(/^\/+/, '')}`;
 }
 
 export default function ProductCard({ familia, onImageError }: ProductCardProps) {
