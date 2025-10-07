@@ -14,7 +14,7 @@ interface Talle {
 
 interface Variante {
   color: string;
-  imagen_url: string | null; // puede venir relativa o absoluta
+  imagen_url: string | null;
   codigo: number;
   talles: Talle[];
 }
@@ -28,9 +28,9 @@ interface ProductCardProps {
     precio_lista: number;
     variantes: Variante[];
   };
+  onImageError?: () => void; // ⬅️ NUEVO
 }
 
-// ---------- Helpers imágenes ----------
 const placeholder =
   process.env.NEXT_PUBLIC_IMG_PLACEHOLDER || '/no_image.png';
 
@@ -38,23 +38,18 @@ const IMG_BASE =
   process.env.NEXT_PUBLIC_IMAGE_BASE_URL ||
   'https://evirtual.calzalindo.com.ar:58000/clz_ventas/static/images';
 
-/** Devuelve la URL final de la imagen:
- * - Si la DB trae absoluta (http/https) => se usa tal cual
- * - Si es relativa => se completa con IMG_BASE
- * - Si no hay => placeholder
- */
 function buildImageUrl(imagen_url: string | null): string {
   if (!imagen_url) return placeholder;
-  if (/^https?:\/\//i.test(imagen_url)) return imagen_url; // ya es absoluta
-  return `${IMG_BASE}/${imagen_url.replace(/^\/+/, '')}`;  // relativa
+  if (/^https?:\/\//i.test(imagen_url)) return imagen_url;
+  return `${IMG_BASE}/${imagen_url.replace(/^\/+/, '')}`;
 }
-// --------------------------------------
 
-export default function ProductCard({ familia }: ProductCardProps) {
+export default function ProductCard({ familia, onImageError }: ProductCardProps) {
   const [selectedColor, setSelectedColor] = useState(0);
   const [selectedTalle, setSelectedTalle] = useState<string | null>(null);
   const [showImageModal, setShowImageModal] = useState(false);
   const [showAddedFeedback, setShowAddedFeedback] = useState(false);
+  const [imageError, setImageError] = useState(false); // ⬅️ NUEVO
   const { addItem } = useConsulta();
 
   const varianteActual = familia.variantes[selectedColor];
@@ -77,6 +72,18 @@ export default function ProductCard({ familia }: ProductCardProps) {
 
   const stockTotal = varianteActual?.talles.reduce((sum, t) => sum + t.stock, 0) || 0;
   const esUltimasUnidades = stockTotal > 0 && stockTotal <= 3;
+
+  // ⬇️ NUEVO: handler mejorado para errores de imagen
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    e.currentTarget.src = placeholder;
+    if (!imageError) {
+      setImageError(true);
+      // Notificar al padre después de un pequeño delay
+      if (onImageError) {
+        setTimeout(() => onImageError(), 100);
+      }
+    }
+  };
 
   const handleWhatsApp = () => {
     const whatsapp = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || '5491234567890';
@@ -108,6 +115,11 @@ Precio: $${sel.value.toLocaleString('es-AR')}`;
     setTimeout(() => setShowAddedFeedback(false), 2000);
   };
 
+  // ⬇️ NUEVO: Si la imagen falló, no renderizar la card
+  if (imageError) {
+    return null;
+  }
+
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow duration-300">
       <div
@@ -124,7 +136,7 @@ Precio: $${sel.value.toLocaleString('es-AR')}`;
           src={imageSrc}
           alt={familia.nombre}
           className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-          onError={(e) => { e.currentTarget.src = placeholder; }}
+          onError={handleImageError}
           loading="lazy"
         />
       </div>
@@ -234,8 +246,7 @@ Precio: $${sel.value.toLocaleString('es-AR')}`;
                 </button>
               ))}
             </div>
-          </div>
-        )}
+          </div>)}
 
         <div className="space-y-2">
           <button
@@ -277,7 +288,7 @@ Precio: $${sel.value.toLocaleString('es-AR')}`;
               src={imageSrc}
               alt={familia.nombre}
               className="w-full h-auto max-h-[85vh] object-contain rounded-lg"
-              onError={(e) => { e.currentTarget.src = placeholder; }}
+              onError={handleImageError}
             />
             <div className="mt-4 text-white text-center">
               <p className="text-lg font-semibold">{familia.nombre}</p>

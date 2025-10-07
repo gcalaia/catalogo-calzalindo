@@ -1,7 +1,7 @@
 // app/page.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import ProductCard from '@/components/ProductCard';
 
 interface Producto {
@@ -65,25 +65,27 @@ export default function Home() {
   const [precioMin, setPrecioMin] = useState('');
   const [precioMax, setPrecioMax] = useState('');
   const [ordenFilter, setOrdenFilter] = useState('nuevos');
-
-  // ⬇️ NUEVO: toggle para productos sin foto
   const [soloSinFoto, setSoloSinFoto] = useState(false);
 
   const [subrubrosDisponibles, setSubrubrosDisponibles] = useState<string[]>([]);
   const [tallesDisponibles, setTallesDisponibles] = useState<string[]>([]);
   const [marcasDisponibles, setMarcasDisponibles] = useState<string[]>([]);
 
-  // filtros iniciales
-  useEffect(() => { fetchFiltros(); }, []);
+  // ⬇️ NUEVO: trackear imágenes que fallaron
+  const [imagenesFallidas, setImagenesFallidas] = useState<Set<string>>(new Set());
 
-  // filtros dinámicos
+  // ⬇️ NUEVO: callback para cuando una imagen falla
+  const onImageError = useCallback((familiaId: string) => {
+    setImagenesFallidas(prev => new Set(prev).add(familiaId));
+  }, []);
+
+  useEffect(() => { fetchFiltros(); }, []);
   useEffect(() => { fetchFiltrosDinamicos(); }, [rubroFilter, subrubroFilter]);
 
-  // búsqueda de productos
   useEffect(() => {
     const hayBusqueda = searchTerm.trim().length > 0;
     const hayFiltrosEspecificos =
-      subrubroFilter || talleFilter || marcaFilter || precioMin || precioMax || soloSinFoto; // ⬅️ incluir toggle
+      subrubroFilter || talleFilter || marcaFilter || precioMin || precioMax || soloSinFoto;
 
     if (hayBusqueda || (rubroFilter === 'all' && hayFiltrosEspecificos) || (rubroFilter !== 'all' && hayFiltrosEspecificos)) {
       const id = setTimeout(fetchProductos, 400);
@@ -131,6 +133,8 @@ export default function Home() {
     try {
       setLoading(true);
       setError(null);
+      // ⬇️ NUEVO: resetear imágenes fallidas al hacer nueva búsqueda
+      setImagenesFallidas(new Set());
 
       const params = new URLSearchParams();
       if (searchTerm) params.append('search', searchTerm);
@@ -141,7 +145,7 @@ export default function Home() {
       if (precioMin) params.append('precioMin', precioMin);
       if (precioMax) params.append('precioMax', precioMax);
       if (ordenFilter) params.append('orden', ordenFilter);
-      if (soloSinFoto) params.append('sinFoto', '1'); // ⬅️ clave para la API
+      if (soloSinFoto) params.append('sinFoto', '1');
       params.append('limit', '2000');
 
       const res = await fetch(`/api/productos?${params.toString()}`, { cache: 'no-store' });
@@ -208,12 +212,16 @@ export default function Home() {
     setMarcaFilter('');
     setPrecioMin('');
     setPrecioMax('');
-    setSoloSinFoto(false); // ⬅️ reset toggle
+    setSoloSinFoto(false);
+    setImagenesFallidas(new Set()); // ⬅️ NUEVO: limpiar también las imágenes fallidas
   }
 
   const hayBusqueda = searchTerm.trim().length > 0;
   const hayFiltrosEspecificos =
     subrubroFilter || marcaFilter || talleFilter || precioMin || precioMax || soloSinFoto;
+
+  // ⬇️ NUEVO: filtrar familias con imágenes fallidas
+  const familiasValidas = familias.filter(f => !imagenesFallidas.has(f.familia_id));
 
   if (loadingFilters) {
     return (
@@ -230,7 +238,6 @@ export default function Home() {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
-        {/* Búsqueda */}
         <div className="mb-4">
           <input
             type="text"
@@ -241,7 +248,6 @@ export default function Home() {
           />
         </div>
 
-        {/* Tabs de rubro */}
         <div className="bg-white rounded-lg shadow mb-4 overflow-x-auto">
           <div className="flex border-b">
             {RUBROS.map(r => (
@@ -260,7 +266,6 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Filtros */}
         <div className="bg-white rounded-lg shadow p-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 mb-4">
             <select
@@ -311,7 +316,6 @@ export default function Home() {
               className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
 
-            {/* ⬇️ NUEVO: toggle sólo sin foto */}
             <label className="flex items-center gap-2 px-2">
               <input
                 type="checkbox"
@@ -322,29 +326,29 @@ export default function Home() {
             </label>
           </div>
 
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <label className="text-sm text-gray-600">Ordenar por:</label>
-                <select
-                  value={ordenFilter}
-                  onChange={(e) => setOrdenFilter(e.target.value)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  {ORDEN_OPTIONS.map(o => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
-                  ))}
-                </select>
-              </div>
-
-              {(hayFiltrosEspecificos || hayBusqueda || rubroFilter !== 'all') && (
-                <button
-                  onClick={limpiarFiltros}
-                  className="px-4 py-2 text-sm text-blue-600 hover:text-blue-800 underline"
-                >
-                  Limpiar filtros
-                </button>
-              )}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <label className="text-sm text-gray-600">Ordenar por:</label>
+              <select
+                value={ordenFilter}
+                onChange={(e) => setOrdenFilter(e.target.value)}
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                {ORDEN_OPTIONS.map(o => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
             </div>
+
+            {(hayFiltrosEspecificos || hayBusqueda || rubroFilter !== 'all') && (
+              <button
+                onClick={limpiarFiltros}
+                className="px-4 py-2 text-sm text-blue-600 hover:text-blue-800 underline"
+              >
+                Limpiar filtros
+              </button>
+            )}
+          </div>
         </div>
 
         {loading && (
@@ -354,13 +358,13 @@ export default function Home() {
           </div>
         )}
 
-        {!loading && familias.length > 0 && (
+        {!loading && familiasValidas.length > 0 && (
           <p className="text-sm text-gray-600 mt-4">
-            Mostrando {familias.length} {familias.length === 1 ? 'familia' : 'familias'} de productos
+            Mostrando {familiasValidas.length} {familiasValidas.length === 1 ? 'familia' : 'familias'} de productos
           </p>
         )}
 
-        {!loading && !hayBusqueda && familias.length === 0 && (
+        {!loading && !hayBusqueda && familiasValidas.length === 0 && (
           <div className="text-center py-12 bg-white rounded-lg shadow mt-4">
             <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
@@ -374,10 +378,14 @@ export default function Home() {
           </div>
         )}
 
-        {!loading && familias.length > 0 && (
+        {!loading && familiasValidas.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mt-4">
-            {familias.map(f => (
-              <ProductCard key={f.familia_id} familia={f} />
+            {familiasValidas.map(f => (
+              <ProductCard 
+                key={f.familia_id} 
+                familia={f}
+                onImageError={() => onImageError(f.familia_id)}
+              />
             ))}
           </div>
         )}
