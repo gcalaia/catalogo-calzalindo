@@ -276,33 +276,33 @@ export default function AdminPage() {
         )}
 
         <div className="bg-white rounded-lg shadow mb-6">
-          <div className="flex border-b overflow-x-auto">
-            {sections.map(section => (
-              <button
-                key={section.key}
-                onClick={() => fetchProductos(section.key)}
-                className={`px-6 py-4 font-medium transition-colors whitespace-nowrap flex items-center gap-2 ${
-                  activeSection === section.key
-                    ? 'border-b-2 border-blue-600 text-blue-600'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
-              >
-                <span>{section.icon}</span>
-                <span>{section.label}</span>
-                {section.count !== undefined && section.count > 0 && (
-                  <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-bold ${
-                    section.color === 'red' ? 'bg-red-100 text-red-700' :
-                    section.color === 'orange' ? 'bg-orange-100 text-orange-700' :
-                    section.color === 'yellow' ? 'bg-yellow-100 text-yellow-700' :
-                    'bg-blue-100 text-blue-700'
-                  }`}>
-                    {section.count}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-        </div>
+  <div className="flex border-b overflow-x-auto">
+    {sections.map(section => (
+      <button
+        key={section.key}
+        onClick={() => fetchProductos(section.key)}
+        className={`px-6 py-4 font-medium transition-colors whitespace-nowrap flex items-center gap-2 ${
+          activeSection === section.key
+            ? 'border-b-2 border-blue-600 text-blue-600'
+            : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+        }`}
+      >
+        <span>{section.icon}</span>
+        <span>{section.label}</span>
+        {(typeof section.count === 'number' && section.count > 0) && (
+          <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-bold ${
+            section.color === 'red' ? 'bg-red-100 text-red-700' :
+            section.color === 'orange' ? 'bg-orange-100 text-orange-700' :
+            section.color === 'yellow' ? 'bg-yellow-100 text-yellow-700' :
+            'bg-blue-100 text-blue-700'
+          }`}>
+            {section.count}
+          </span>
+        )}
+      </button>
+    ))}
+  </div>
+</div>
 
         {loadingData ? (
           <div className="text-center py-12">
