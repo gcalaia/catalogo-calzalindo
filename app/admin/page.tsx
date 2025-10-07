@@ -16,6 +16,17 @@ interface Producto {
   talla?: string | null;
 }
 
+// ⬇️ NUEVO: Interface para productos sin foto
+interface ProductoSinFoto {
+  familia_id: string;
+  nombre: string;
+  marca: string | null;
+  rubro: string | null;
+  imagen_url: string | null;
+  colores: string[];
+  talles: { talla: string; stock: number }[];
+}
+
 interface Stats {
   totalProductos: number;
   productosConStock: number;
@@ -36,6 +47,7 @@ export default function AdminPage() {
 
   const [stats, setStats] = useState<Stats | null>(null);
   const [productos, setProductos] = useState<Producto[]>([]);
+  const [productosSinFoto, setProductosSinFoto] = useState<ProductoSinFoto[]>([]); // ⬅️ NUEVO
   const [loadingData, setLoadingData] = useState(false);
   const [activeSection, setActiveSection] = useState<Section>('sin-foto');
   const [searchTerm, setSearchTerm] = useState('');
@@ -109,7 +121,15 @@ export default function AdminPage() {
 
       const res = await fetch(endpoints[section]);
       const data = await res.json();
-      setProductos(data.productos || []);
+
+      // ⬇️ NUEVO: Detectar si es la sección sin-foto (formato diferente)
+      if (section === 'sin-foto') {
+        setProductosSinFoto(data.productos || []);
+        setProductos([]); // Limpiar productos normales
+      } else {
+        setProductos(data.productos || []);
+        setProductosSinFoto([]); // Limpiar productos sin foto
+      }
     } catch (err) {
       console.error('Error:', err);
     } finally {
@@ -118,14 +138,29 @@ export default function AdminPage() {
   };
 
   const exportarCSV = () => {
-    const csv = productosFiltrados
-      .map(
-        (p) =>
-          `${p.codigo},"${p.nombre.replace(/"/g, '""')}","${(p.marca_descripcion || '').replace(/"/g, '""')}",${p.stock_disponible},${p.precio_lista}`
-      )
-      .join('\n');
+    let csv = '';
 
-    const blob = new Blob([`Codigo,Nombre,Marca,Stock,Precio\n${csv}`], {
+    if (activeSection === 'sin-foto') {
+      // CSV para sin foto
+      csv = productosSinFotoFiltrados
+        .map(
+          (p) =>
+            `${p.familia_id},"${p.nombre.replace(/"/g, '""')}","${(p.marca || '').replace(/"/g, '""')}","${p.colores.join(', ')}","${p.talles.map(t => `${t.talla}(${t.stock})`).join(', ')}"`
+        )
+        .join('\n');
+      csv = `Familia ID,Nombre,Marca,Colores,Talles\n${csv}`;
+    } else {
+      // CSV para otras secciones
+      csv = productosFiltrados
+        .map(
+          (p) =>
+            `${p.codigo},"${p.nombre.replace(/"/g, '""')}","${(p.marca_descripcion || '').replace(/"/g, '""')}",${p.stock_disponible},${p.precio_lista}`
+        )
+        .join('\n');
+      csv = `Codigo,Nombre,Marca,Stock,Precio\n${csv}`;
+    }
+
+    const blob = new Blob([csv], {
       type: 'text/csv;charset=utf-8;',
     });
     const url = URL.createObjectURL(blob);
@@ -143,6 +178,18 @@ export default function AdminPage() {
       p.codigo.toString().includes(term) ||
       p.nombre.toLowerCase().includes(term) ||
       p.marca_descripcion?.toLowerCase().includes(term) ||
+      p.rubro?.toLowerCase().includes(term)
+    );
+  });
+
+  // ⬇️ NUEVO: Filtrado para productos sin foto
+  const productosSinFotoFiltrados = productosSinFoto.filter((p) => {
+    if (!searchTerm) return true;
+    const term = searchTerm.toLowerCase();
+    return (
+      p.familia_id.toLowerCase().includes(term) ||
+      p.nombre.toLowerCase().includes(term) ||
+      p.marca?.toLowerCase().includes(term) ||
       p.rubro?.toLowerCase().includes(term)
     );
   });
@@ -346,12 +393,17 @@ export default function AdminPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-gray-600">
-                    {productosFiltrados.length}{' '}
-                    {productosFiltrados.length === 1 ? 'producto' : 'productos'}
+                    {activeSection === 'sin-foto'
+                      ? `${productosSinFotoFiltrados.length} ${productosSinFotoFiltrados.length === 1 ? 'familia' : 'familias'}`
+                      : `${productosFiltrados.length} ${productosFiltrados.length === 1 ? 'producto' : 'productos'}`}
                   </span>
                   <button
                     onClick={exportarCSV}
-                    disabled={productosFiltrados.length === 0}
+                    disabled={
+                      activeSection === 'sin-foto'
+                        ? productosSinFotoFiltrados.length === 0
+                        : productosFiltrados.length === 0
+                    }
                     className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-colors flex items-center gap-2"
                   >
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -368,93 +420,223 @@ export default function AdminPage() {
               </div>
             </div>
 
-            {productosFiltrados.length === 0 ? (
-              <div className="bg-white rounded-lg shadow p-12 text-center">
-                <svg className="mx-auto h-12 w-12 text-green-500 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                  {searchTerm ? 'No se encontraron resultados' : '¡Excelente!'}
-                </h3>
-                <p className="text-gray-600">
-                  {searchTerm ? 'Probá con otros términos de búsqueda' : 'No hay productos en esta categoría'}
-                </p>
-              </div>
-            ) : (
-              <div className="bg-white rounded-lg shadow overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Código
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Nombre
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Marca
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Rubro
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Stock
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Precio
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Acciones
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {productosFiltrados.map((p) => {
-                        const isLowStock = p.stock_disponible <= 3;
-                        const searchUrl = `/?search=${encodeURIComponent(p.nombre.split(' ').slice(0, 2).join(' '))}`;
-                        
-                        return (
-                          <tr key={p.id} className="hover:bg-gray-50">
+            {/* ⬇️ NUEVO: Renderizado condicional según la sección */}
+            {activeSection === 'sin-foto' ? (
+              // Tabla para productos sin foto
+              productosSinFotoFiltrados.length === 0 ? (
+                <div className="bg-white rounded-lg shadow p-12 text-center">
+                  <svg className="mx-auto h-12 w-12 text-green-500 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    {searchTerm ? 'No se encontraron resultados' : '¡Excelente!'}
+                  </h3>
+                  <p className="text-gray-600">
+                    {searchTerm ? 'Probá con otros términos de búsqueda' : 'No hay productos sin foto'}
+                  </p>
+                </div>
+              ) : (
+                <div className="bg-white rounded-lg shadow overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Familia ID
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Producto
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Marca
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Rubro
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Colores
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Talles
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            URL Imagen
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {productosSinFotoFiltrados.map((p) => (
+                          <tr key={p.familia_id} className="hover:bg-gray-50">
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">
-                              {p.codigo}
+                              {p.familia_id}
                             </td>
                             <td className="px-6 py-4 text-sm text-gray-900">{p.nombre}</td>
-                            <td className="px-6 py-4 text-sm text-gray-600">
-                              {p.marca_descripcion || '-'}
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {p.marca || '-'}
                             </td>
-                            <td className="px-6 py-4 text-sm text-gray-600">{p.rubro || '-'}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm">
-                              <span
-                                className={`px-2 py-0.5 rounded-full font-medium ${
-                                  isLowStock
-                                    ? 'bg-orange-100 text-orange-700'
-                                    : 'bg-green-100 text-green-700'
-                                }`}
-                              >
-                                {p.stock_disponible}
-                              </span>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {p.rubro || '-'}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                              ${p.precio_lista.toLocaleString('es-AR')}
+                            <td className="px-6 py-4 text-sm text-gray-900">
+                              <div className="flex flex-wrap gap-1">
+                                {p.colores && p.colores.length > 0 ? (
+                                  p.colores.map((color, idx) => (
+                                    <span
+                                      key={idx}
+                                      className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800"
+                                    >
+                                      {color}
+                                    </span>
+                                  ))
+                                ) : (
+                                  <span className="text-gray-400">Sin color</span>
+                                )}
+                              </div>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm">
-                              <a href={`/?search=${encodeURIComponent(p.nombre.split(' ').slice(0, 2).join(' '))}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 underline">
-                                Ver catalogo
-                              </a>
+                            <td className="px-6 py-4 text-sm text-gray-900">
+                              <div className="flex flex-wrap gap-1">
+                                {p.talles && p.talles.length > 0 ? (
+                                  <>
+                                    {p.talles.slice(0, 3).map((t, idx) => (
+                                      <span
+                                        key={idx}
+                                        className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800"
+                                      >
+                                        {t.talla} ({t.stock})
+                                      </span>
+                                    ))}
+                                    {p.talles.length > 3 && (
+                                      <span className="text-xs text-gray-500">
+                                        +{p.talles.length - 3} más
+                                      </span>
+                                    )}
+                                  </>
+                                ) : (
+                                  <span className="text-gray-400">-</span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 text-sm text-gray-500 max-w-xs">
+                              {p.imagen_url ? (
+                                
+                                  href={p.imagen_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-blue-600 hover:underline truncate block"
+                                  title={p.imagen_url}
+                                >
+                                  Ver URL
+                                </a>
+                              ) : (
+                                <span className="text-red-500">Sin URL</span>
+                              )}
                             </td>
                           </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-              </div>
+              )
+            ) : (
+              // Tabla para otras secciones (stock bajo, sin precio, sin marca)
+              productosFiltrados.length === 0 ? (
+                <div className="bg-white rounded-lg shadow p-12 text-center">
+                  <svg className="mx-auto h-12 w-12 text-green-500 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    {searchTerm ? 'No se encontraron resultados' : '¡Excelente!'}
+                  </h3>
+                  <p className="text-gray-600">
+                    {searchTerm ? 'Probá con otros términos de búsqueda' : 'No hay productos en esta categoría'}
+                  </p>
+                </div>
+              ) : (
+                <div className="bg-white rounded-lg shadow overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Código
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Nombre
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Marca
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Rubro
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Stock
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Precio
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Acciones
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {productosFiltrados.map((p) => {
+                          const isLowStock = p.stock_disponible <= 3;
+                          
+                          return (
+                            <tr key={p.id} className="hover:bg-gray-50">
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">
+                                {p.codigo}
+                              </td>
+                              <td className="px-6 py-4 text-sm text-gray-900">{p.nombre}</td>
+                              <td className="px-6 py-4 text-sm text-gray-600">
+                                {p.marca_descripcion || '-'}
+                              </td>
+                              <td className="px-6 py-4 text-sm text-gray-600">{p.rubro || '-'}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                <span
+                                  className={`px-2 py-0.5 rounded-full font-medium ${
+                                    isLowStock
+                                      ? 'bg-orange-100 text-orange-700'
+                                      : 'bg-green-100 text-green-700'
+                                  }`}
+                                >
+                                  {p.stock_disponible}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                ${p.precio_lista.toLocaleString('es-AR')}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                
+                                  href={`/?search=${encodeURIComponent(p.nombre.split(' ').slice(0, 2).join(' '))}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-blue-600 hover:text-blue-800 underline"
+                                >
+                                  Ver catálogo
+                                </a>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )
             )}
           </>
         )}
