@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { getColorStyle, isColorDark, getColorHex } from '@/lib/colorMap';
 import { calcularPrecios } from '@/lib/pricing';
 import { useConsulta } from '@/app/contexts/ConsultaContext';
@@ -73,6 +73,25 @@ export default function ProductCard({ familia, onImageError }: ProductCardProps)
   const { addItem } = useConsulta();
 
   const variantesValidas = familia.variantes.filter((_, index) => !variantesConError.has(index));
+
+useEffect(() => {
+  // Si todas las variantes fallaron, notificar al padre para ocultar la card
+  if (variantesConError.size > 0 && variantesConError.size === familia.variantes.length) {
+    if (onImageError) {
+      onImageError();
+    }
+  }
+}, [variantesConError, familia.variantes.length, onImageError]);
+
+useEffect(() => {
+  // Si la variante actual tiene error, cambiar a la primera válida
+  if (variantesConError.has(selectedColor)) {
+    const primerIndiceValido = familia.variantes.findIndex((_, idx) => !variantesConError.has(idx));
+    if (primerIndiceValido !== -1) {
+      setSelectedColor(primerIndiceValido);
+    }
+  }
+}, [variantesConError, selectedColor, familia.variantes]);
 
   const varianteActual = familia.variantes[selectedColor];
   const imageSrc = buildImageUrl(varianteActual?.imagen_url || null);

@@ -13,7 +13,6 @@ export async function GET() {
           { imagen_url: '' },
           { imagen_url: { contains: 'no_image' } },
           { imagen_url: { contains: 'placeholder' } },
-          // URLs que parecen genéricas o inválidas
           { imagen_url: { endsWith: '000000000001.jpg' } },
           { imagen_url: { contains: '0000000000000' } },
         ]
@@ -30,7 +29,7 @@ export async function GET() {
         stock_disponible: true,
         familia_id: true,
       },
-      take: 200,
+      take: 500,
       orderBy: { id: 'desc' }
     });
 
@@ -65,8 +64,8 @@ export async function GET() {
 
     return NextResponse.json({
       total: resultado.length,
+      totalProductos: productos.length, // ⬅️ NUEVO: total de productos individuales
       productos: resultado,
-      porcentaje: 'Calculado sobre productos con URLs sospechosas',
     });
 
   } catch (error) {

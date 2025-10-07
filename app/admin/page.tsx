@@ -111,29 +111,30 @@ export default function AdminPage() {
     setSearchTerm('');
 
     try {
-      const endpoints: Record<Section, string> = {
-        'sin-foto': '/api/admin/productos-sin-foto',
-        'stock-bajo': '/api/admin/stock-bajo',
-        'sin-precio': '/api/admin/sin-precio',
-        'sin-marca': '/api/admin/sin-marca'
-      };
+    const endpoints: Record<Section, string> = {
+      'sin-foto': '/api/admin/productos-sin-foto',
+      'stock-bajo': '/api/admin/stock-bajo-agrupado', // ⬅️ CAMBIAR ESTO
+      'sin-precio': '/api/admin/sin-precio',
+      'sin-marca': '/api/admin/sin-marca'
+    };
+
 
       const res = await fetch(endpoints[section]);
       const data = await res.json();
 
-      if (section === 'sin-foto') {
-        setProductosSinFoto(data.productos || []);
-        setProductos([]);
-      } else {
-        setProductos(data.productos || []);
-        setProductosSinFoto([]);
-      }
-    } catch (err) {
-      console.error('Error:', err);
-    } finally {
-      setLoadingData(false);
+      if (section === 'sin-foto' || section === 'stock-bajo') {
+      setProductosSinFoto(data.productos || []);
+      setProductos([]);
+    } else {
+      setProductos(data.productos || []);
+      setProductosSinFoto([]);
     }
-  };
+  } catch (err) {
+    console.error('Error:', err);
+  } finally {
+    setLoadingData(false);
+  }
+};
 
   const exportarCSV = () => {
     let csv = '';
@@ -362,7 +363,7 @@ export default function AdminPage() {
 
             <div className="bg-white rounded-lg shadow overflow-hidden">
               <div className="overflow-x-auto">
-                {activeSection === 'sin-foto' ? (
+                {(activeSection === 'sin-foto' || activeSection === 'stock-bajo') ? (
                   <table className="w-full">
                     <thead className="bg-gray-50">
                       <tr>
@@ -371,6 +372,8 @@ export default function AdminPage() {
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Marca</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Colores</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Talles</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stock Total</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stock Mínimo</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y">
@@ -380,8 +383,18 @@ export default function AdminPage() {
                           <td className="px-6 py-4 text-sm">{p.nombre}</td>
                           <td className="px-6 py-4 text-sm">{p.marca || '-'}</td>
                           <td className="px-6 py-4 text-sm">{p.colores.join(', ') || '-'}</td>
-                          <td className="px-6 py-4 text-sm">{p.talles.map(t => `${t.talla}(${t.stock})`).join(', ')}</td>
-                        </tr>
+                          <td className="px-6 py-4 text-sm">{p.talles.map(t => `${t.talla}(${t.stock})`).join(', ')}
+                            <td className="px-6 py-4 text-sm">
+                                  {activeSection === 'stock-bajo' && p.stockTotal ? p.stockTotal : '-'}
+                                </td>
+                                <td className="px-6 py-4 text-sm">
+                                  {activeSection === 'stock-bajo' && p.stockMinimo ? (
+                                    <span className="px-2 py-1 rounded text-xs bg-orange-100 text-orange-700 font-bold">
+                                      {p.stockMinimo}
+                                    </span>
+                                  ) : '-'}
+                                </td>
+                                </tr>
                       ))}
                     </tbody>
                   </table>
