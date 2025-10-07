@@ -23,7 +23,7 @@ interface ProductoSinFoto {
   rubro: string | null;
   imagen_url: string | null;
   colores: string[];
-  talles: { talla: string; stock: number }[];
+  talles: Array<{ talla: string; stock: number }>;
 }
 
 interface Stats {
@@ -140,25 +140,17 @@ export default function AdminPage() {
 
     if (activeSection === 'sin-foto') {
       csv = productosSinFotoFiltrados
-        .map(
-          (p) =>
-            `${p.familia_id},"${p.nombre.replace(/"/g, '""')}","${(p.marca || '').replace(/"/g, '""')}","${p.colores.join(', ')}","${p.talles.map(t => `${t.talla}(${t.stock})`).join(', ')}"`
-        )
+        .map(p => `${p.familia_id},"${p.nombre}","${p.marca || ''}","${p.colores.join(', ')}"`)
         .join('\n');
-      csv = `Familia ID,Nombre,Marca,Colores,Talles\n${csv}`;
+      csv = `Familia,Nombre,Marca,Colores\n${csv}`;
     } else {
       csv = productosFiltrados
-        .map(
-          (p) =>
-            `${p.codigo},"${p.nombre.replace(/"/g, '""')}","${(p.marca_descripcion || '').replace(/"/g, '""')}",${p.stock_disponible},${p.precio_lista}`
-        )
+        .map(p => `${p.codigo},"${p.nombre}","${p.marca_descripcion || ''}",${p.stock_disponible},${p.precio_lista}`)
         .join('\n');
       csv = `Codigo,Nombre,Marca,Stock,Precio\n${csv}`;
     }
 
-    const blob = new Blob([csv], {
-      type: 'text/csv;charset=utf-8;',
-    });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -173,8 +165,8 @@ export default function AdminPage() {
     return (
       p.codigo.toString().includes(term) ||
       p.nombre.toLowerCase().includes(term) ||
-      p.marca_descripcion?.toLowerCase().includes(term) ||
-      p.rubro?.toLowerCase().includes(term)
+      (p.marca_descripcion && p.marca_descripcion.toLowerCase().includes(term)) ||
+      (p.rubro && p.rubro.toLowerCase().includes(term))
     );
   });
 
@@ -184,8 +176,8 @@ export default function AdminPage() {
     return (
       p.familia_id.toLowerCase().includes(term) ||
       p.nombre.toLowerCase().includes(term) ||
-      p.marca?.toLowerCase().includes(term) ||
-      p.rubro?.toLowerCase().includes(term)
+      (p.marca && p.marca.toLowerCase().includes(term)) ||
+      (p.rubro && p.rubro.toLowerCase().includes(term))
     );
   });
 
@@ -203,12 +195,7 @@ export default function AdminPage() {
           <div className="text-center mb-8">
             <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
               <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
               </svg>
             </div>
             <h1 className="text-2xl font-bold text-gray-900">Panel de Administración</h1>
@@ -253,16 +240,11 @@ export default function AdminPage() {
       <div className="bg-white shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <a href="/" className="text-blue-600 hover:text-blue-800 transition-colors">
-              ← Volver al catálogo
-            </a>
+            <a href="/" className="text-blue-600 hover:text-blue-800 transition-colors">← Volver al catálogo</a>
             <span className="text-gray-300">|</span>
             <h1 className="text-xl font-bold text-gray-900">Panel de Administración</h1>
           </div>
-          <button
-            onClick={handleLogout}
-            className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-          >
+          <button onClick={handleLogout} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
             Cerrar sesión
           </button>
         </div>
@@ -275,9 +257,7 @@ export default function AdminPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600">Total Productos</p>
-                  <p className="text-3xl font-bold text-gray-900 mt-1">
-                    {stats.totalProductos.toLocaleString()}
-                  </p>
+                  <p className="text-3xl font-bold text-gray-900 mt-1">{stats.totalProductos.toLocaleString()}</p>
                 </div>
                 <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
                   <span className="text-2xl">📦</span>
@@ -289,9 +269,7 @@ export default function AdminPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600">Con Stock</p>
-                  <p className="text-3xl font-bold text-green-600 mt-1">
-                    {stats.productosConStock.toLocaleString()}
-                  </p>
+                  <p className="text-3xl font-bold text-green-600 mt-1">{stats.productosConStock.toLocaleString()}</p>
                 </div>
                 <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
                   <span className="text-2xl">✅</span>
@@ -303,9 +281,7 @@ export default function AdminPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600">Familias</p>
-                  <p className="text-3xl font-bold text-purple-600 mt-1">
-                    {stats.totalFamilias.toLocaleString()}
-                  </p>
+                  <p className="text-3xl font-bold text-purple-600 mt-1">{stats.totalFamilias.toLocaleString()}</p>
                 </div>
                 <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
                   <span className="text-2xl">👟</span>
@@ -318,12 +294,7 @@ export default function AdminPage() {
                 <div>
                   <p className="text-sm text-gray-600">Requieren Atención</p>
                   <p className="text-3xl font-bold text-orange-600 mt-1">
-                    {(
-                      (stats.productosSinFoto || 0) +
-                      (stats.productosStockBajo || 0) +
-                      (stats.productosSinPrecio || 0) +
-                      (stats.productosSinMarca || 0)
-                    ).toLocaleString()}
+                    {((stats.productosSinFoto || 0) + (stats.productosStockBajo || 0) + (stats.productosSinPrecio || 0) + (stats.productosSinMarca || 0)).toLocaleString()}
                   </p>
                 </div>
                 <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
@@ -341,25 +312,17 @@ export default function AdminPage() {
                 key={section.key}
                 onClick={() => fetchProductos(section.key)}
                 className={`px-6 py-4 font-medium transition-colors whitespace-nowrap flex items-center gap-2 ${
-                  activeSection === section.key
-                    ? 'border-b-2 border-blue-600 text-blue-600'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  activeSection === section.key ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                 }`}
               >
                 <span>{section.icon}</span>
                 <span>{section.label}</span>
                 {section.count !== undefined && (
-                  <span
-                    className={`ml-2 px-2 py-0.5 rounded-full text-xs font-bold ${
-                      section.color === 'red'
-                        ? 'bg-red-100 text-red-700'
-                        : section.color === 'orange'
-                        ? 'bg-orange-100 text-orange-700'
-                        : section.color === 'yellow'
-                        ? 'bg-yellow-100 text-yellow-700'
-                        : 'bg-blue-100 text-blue-700'
-                    }`}
-                  >
+                  <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-bold ${
+                    section.color === 'red' ? 'bg-red-100 text-red-700' :
+                    section.color === 'orange' ? 'bg-orange-100 text-orange-700' :
+                    section.color === 'yellow' ? 'bg-yellow-100 text-yellow-700' : 'bg-blue-100 text-blue-700'
+                  }`}>
                     {section.count}
                   </span>
                 )}
@@ -380,270 +343,74 @@ export default function AdminPage() {
                 <div className="w-full sm:w-auto flex-1">
                   <input
                     type="text"
-                    placeholder="Buscar por código, nombre, marca o rubro..."
+                    placeholder="Buscar..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-gray-600">
-                    {activeSection === 'sin-foto'
-                      ? `${productosSinFotoFiltrados.length} ${productosSinFotoFiltrados.length === 1 ? 'familia' : 'familias'}`
-                      : `${productosFiltrados.length} ${productosFiltrados.length === 1 ? 'producto' : 'productos'}`}
+                    {activeSection === 'sin-foto' ? `${productosSinFotoFiltrados.length} familias` : `${productosFiltrados.length} productos`}
                   </span>
-                  <button
-                    onClick={exportarCSV}
-                    disabled={
-                      activeSection === 'sin-foto'
-                        ? productosSinFotoFiltrados.length === 0
-                        : productosFiltrados.length === 0
-                    }
-                    className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-colors flex items-center gap-2"
-                  >
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                      />
-                    </svg>
+                  <button onClick={exportarCSV} disabled={activeSection === 'sin-foto' ? productosSinFotoFiltrados.length === 0 : productosFiltrados.length === 0} className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-300 text-white rounded-lg">
                     CSV
                   </button>
                 </div>
               </div>
             </div>
 
-            {activeSection === 'sin-foto' ? (
-              productosSinFotoFiltrados.length === 0 ? (
-                <div className="bg-white rounded-lg shadow p-12 text-center">
-                  <svg className="mx-auto h-12 w-12 text-green-500 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                    {searchTerm ? 'No se encontraron resultados' : '¡Excelente!'}
-                  </h3>
-                  <p className="text-gray-600">
-                    {searchTerm ? 'Probá con otros términos de búsqueda' : 'No hay productos sin foto'}
-                  </p>
-                </div>
-              ) : (
-                <div className="bg-white rounded-lg shadow overflow-hidden">
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Familia</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Producto</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Marca</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rubro</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Colores</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Talles</th>
+            <div className="bg-white rounded-lg shadow overflow-hidden">
+              <div className="overflow-x-auto">
+                {activeSection === 'sin-foto' ? (
+                  <table className="w-full">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Familia</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Producto</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Marca</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Colores</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Talles</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {productosSinFotoFiltrados.map((p) => (
+                        <tr key={p.familia_id}>
+                          <td className="px-6 py-4 text-sm">{p.familia_id}</td>
+                          <td className="px-6 py-4 text-sm">{p.nombre}</td>
+                          <td className="px-6 py-4 text-sm">{p.marca || '-'}</td>
+                          <td className="px-6 py-4 text-sm">{p.colores.join(', ') || '-'}</td>
+                          <td className="px-6 py-4 text-sm">{p.talles.map(t => `${t.talla}(${t.stock})`).join(', ')}</td>
                         </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {productosSinFotoFiltrados.map((p) => (
-                          <tr key={p.familia_id} className="hover:bg-gray-50">
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">{p.familia_id}</td>
-                            <td className="px-6 py-4 text-sm text-gray-900">{p.nombre}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{p.marca || '-'}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{p.rubro || '-'}</td>
-                            <td className="px-6 py-4 text-sm">
-                              <div className="flex flex-wrap gap-1">
-                                {p.colores && p.colores.length > 0 ? (
-                                  p.colores.map((color, idx) => (
-                                    <span key={idx} className="px-2 py-0.5 rounded text-xs bg-blue-100 text-blue-800">{color}</span>
-                                  ))
-                                ) : (
-                                  <span className="text-gray-400">-</span>
-                                )}
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 text-sm">
-                              <div className="flex flex-wrap gap-1">
-                                {p.talles && p.talles.length > 0 ? (
-                                  p.talles.slice(0, 3).map((t, idx) => (
-                                    <span key={idx} className="px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-800">
-                                      {t.talla} ({t.stock})
-                                    </span>
-                                  ))
-                                ) : (
-                                  <span className="text-gray-400">-</span>
-                                )}
-                                {p.talles && p.talles.length > 3 && (
-                                  <span className="text-xs text-gray-500">+{p.talles.length - 3}</span>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )
-            ) : (
-              productosFiltrados.length === 0 ? (
-                <div className="bg-white rounded-lg shadow p-12 text-center">
-                  <svg className="mx-auto h-12 w-12 text-green-500 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                    {searchTerm ? 'No se encontraron resultados' : '¡Excelente!'}
-                  </h3>
-                  <p className="text-gray-600">
-                    {searchTerm ? 'Probá con otros términos de búsqueda' : 'No hay productos en esta categoría'}
-                  </p>
-                </div>
-              ) : (
-                <div className="bg-white rounded-lg shadow overflow-hidden">
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Código</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nombre</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Marca</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rubro</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stock</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Precio</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <table className="w-full">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Código</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nombre</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Marca</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stock</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Precio</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {productosFiltrados.map((p) => (
+                        <tr key={p.id}>
+                          <td className="px-6 py-4 text-sm">{p.codigo}</td>
+                          <td className="px-6 py-4 text-sm">{p.nombre}</td>
+                          <td className="px-6 py-4 text-sm">{p.marca_descripcion || '-'}</td>
+                          <td className="px-6 py-4 text-sm">{p.stock_disponible}</td>
+                          <td className="px-6 py-4 text-sm">${p.precio_lista.toLocaleString()}</td>
                         </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {productosFiltrados.map((p) => {
-                          const isLowStock = p.stock_disponible <= 3;
-                          return (
-                            <tr key={p.id} className="hover:bg-gray-50">
-                              <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">{p.codigo}</td>
-                              <td className="px-6 py-4 text-sm text-gray-900">{p.nombre}</td>
-                              <td className="px-6 py-4 text-sm text-gray-600">{p.marca_descripcion || '-'}</td>
-                              <td className="px-6 py-4 text-sm text-gray-600">{p.rubro || '-'}</td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                <span className={`px-2 py-0.5 rounded-full font-medium ${isLowStock ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>
-                                  {p.stock_disponible}
-                                </span>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                ${p.precio_lista.toLocaleString('es-AR')}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                <a href={`/?search=${encodeURIComponent(p.nombre.split(' ').slice(0, 2).join(' '))}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 underline">
-                                  Ver catálogo
-                                </a>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )
-            )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )
-            ) : (
-              productosFiltrados.length === 0 ? (
-                <div className="bg-white rounded-lg shadow p-12 text-center">
-                  <svg className="mx-auto h-12 w-12 text-green-500 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                    {searchTerm ? 'No se encontraron resultados' : '¡Excelente!'}
-                  </h3>
-                  <p className="text-gray-600">
-                    {searchTerm ? 'Probá con otros términos de búsqueda' : 'No hay productos en esta categoría'}
-                  </p>
-                </div>
-              ) : (
-                <div className="bg-white rounded-lg shadow overflow-hidden">
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Código
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Nombre
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Marca
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Rubro
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Stock
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Precio
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Acciones
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {productosFiltrados.map((p) => {
-                          const isLowStock = p.stock_disponible <= 3;
-                          
-                          return (
-                            <tr key={p.id} className="hover:bg-gray-50">
-                              <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">
-                                {p.codigo}
-                              </td>
-                              <td className="px-6 py-4 text-sm text-gray-900">{p.nombre}</td>
-                              <td className="px-6 py-4 text-sm text-gray-600">
-                                {p.marca_descripcion || '-'}
-                              </td>
-                              <td className="px-6 py-4 text-sm text-gray-600">{p.rubro || '-'}</td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                <span
-                                  className={`px-2 py-0.5 rounded-full font-medium ${
-                                    isLowStock
-                                      ? 'bg-orange-100 text-orange-700'
-                                      : 'bg-green-100 text-green-700'
-                                  }`}
-                                >
-                                  {p.stock_disponible}
-                                </span>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                ${p.precio_lista.toLocaleString('es-AR')}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                
-                                  href={`/?search=${encodeURIComponent(p.nombre.split(' ').slice(0, 2).join(' '))}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-blue-600 hover:text-blue-800 underline"
-                                >
-                                  Ver catálogo
-                                </a>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )
-            )}
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
           </>
         )}
       </div>
