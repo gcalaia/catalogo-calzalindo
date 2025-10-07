@@ -38,10 +38,16 @@ export default function ProductCard({ familia }: ProductCardProps) {
   const [showAddedFeedback, setShowAddedFeedback] = useState(false);
   const { addItem } = useConsulta();
 
+  const imageBaseUrl = process.env.NEXT_PUBLIC_IMAGE_BASE_URL || 
+    'https://evirtual.calzalindo.com.ar:58000/clz_ventas/static/images';
+
   const varianteActual = familia.variantes[selectedColor];
-  const imageUrl =
-    varianteActual?.imagen_url ||
-    'https://evirtual.calzalindo.com.ar:58000/clz_ventas/static/images/no_image.png';
+  
+  const imageUrl = varianteActual?.imagen_url 
+    ? varianteActual.imagen_url.startsWith('http') 
+      ? varianteActual.imagen_url 
+      : `${imageBaseUrl}/${varianteActual.imagen_url.replace(/^\/+/, '')}`
+    : `${imageBaseUrl}/no_image.png`;
 
   const { lista, contado, debito, offContado, offDebito } = calcularPrecios(familia.precio_lista);
 
@@ -105,7 +111,7 @@ Precio: $${sel.value.toLocaleString('es-AR')}`;
         )}
 
         <img
-          src={imageError ? 'https://evirtual.calzalindo.com.ar:58000/clz_ventas/static/images/no_image.png' : imageUrl}
+          src={imageError ? `${imageBaseUrl}/no_image.png` : imageUrl}
           alt={familia.nombre}
           className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
           onError={() => setImageError(true)}
@@ -258,7 +264,7 @@ Precio: $${sel.value.toLocaleString('es-AR')}`;
               ×
             </button>
             <img
-              src={imageError ? 'https://evirtual.calzalindo.com.ar:58000/clz_ventas/static/images/no_image.png' : imageUrl}
+              src={imageError ? `${imageBaseUrl}/no_image.png` : imageUrl}
               alt={familia.nombre}
               className="w-full h-auto max-h-[85vh] object-contain rounded-lg"
               onClick={(e) => e.stopPropagation()}
