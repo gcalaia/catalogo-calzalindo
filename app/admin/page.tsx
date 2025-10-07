@@ -444,13 +444,8 @@ export default function AdminPage() {
                               ${p.precio_lista.toLocaleString('es-AR')}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm">
-                              
-                                href={searchUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-blue-600 hover:text-blue-800 underline"
-                              >
-                                Ver en catálogo
+                              <a href={`/?search=${encodeURIComponent(p.nombre.split(' ').slice(0, 2).join(' '))}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 underline">
+                                Ver catalogo
                               </a>
                             </td>
                           </tr>
