@@ -30,14 +30,25 @@ interface ProductCardProps {
   };
 }
 
-/** Normaliza a { u: URL absoluta | null, p: path relativo | null } */
-function toPathOrUrl(imagen_url: string | null): { u: string | null; p: string | null } {
-  if (!imagen_url) return { u: null, p: null };
-  if (/^https?:\/\//i.test(imagen_url)) {
-    return { u: imagen_url, p: null }; // ya viene absoluta
-  }
-  return { u: null, p: imagen_url.replace(/^\/+/, '') }; // quitar / inicial si existe
+// ---------- Helpers imágenes ----------
+const placeholder =
+  process.env.NEXT_PUBLIC_IMG_PLACEHOLDER || '/no_image.png';
+
+const IMG_BASE =
+  process.env.NEXT_PUBLIC_IMAGE_BASE_URL ||
+  'https://evirtual.calzalindo.com.ar:58000/clz_ventas/static/images';
+
+/** Devuelve la URL final de la imagen:
+ * - Si la DB trae absoluta (http/https) => se usa tal cual
+ * - Si es relativa => se completa con IMG_BASE
+ * - Si no hay => placeholder
+ */
+function buildImageUrl(imagen_url: string | null): string {
+  if (!imagen_url) return placeholder;
+  if (/^https?:\/\//i.test(imagen_url)) return imagen_url; // ya es absoluta
+  return `${IMG_BASE}/${imagen_url.replace(/^\/+/, '')}`;  // relativa
 }
+// --------------------------------------
 
 export default function ProductCard({ familia }: ProductCardProps) {
   const [selectedColor, setSelectedColor] = useState(0);
@@ -47,19 +58,8 @@ export default function ProductCard({ familia }: ProductCardProps) {
   const { addItem } = useConsulta();
 
   const varianteActual = familia.variantes[selectedColor];
+  const imageSrc = buildImageUrl(varianteActual?.imagen_url || null);
 
-  // Imagen via proxy (externo -> interno -> placeholder)
-  const { u, p } = toPathOrUrl(varianteActual?.imagen_url || null);
-  // helper: usa la URL de la DB; si es relativa, la completa con BASE; si falta, placeholder
-const placeholder = process.env.NEXT_PUBLIC_IMG_PLACEHOLDER || '/no_image.png';
-const IMG_BASE = process.env.NEXT_PUBLIC_IMAGE_BASE_URL
-  || 'https://evirtual.calzalindo.com.ar:58000/clz_ventas/static/images';
-
-function buildImageUrl(imagen_url: string | null): string {
-  if (!imagen_url) return placeholder;
-  if (/^https?:\/\//i.test(imagen_url)) return imagen_url;        // ya es absoluta (la DB)
-  return `${IMG_BASE}/${imagen_url.replace(/^\/+/, '')}`;         // relativa -> completamos
-}
   const { lista, contado, debito, offContado, offDebito } = calcularPrecios(familia.precio_lista);
 
   type MedioKey = 'contado' | 'debito' | 'lista';
@@ -121,7 +121,7 @@ Precio: $${sel.value.toLocaleString('es-AR')}`;
         )}
 
         <img
-          src={proxiedSrc}
+          src={imageSrc}
           alt={familia.nombre}
           className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
           onError={(e) => { e.currentTarget.src = placeholder; }}
@@ -274,7 +274,7 @@ Precio: $${sel.value.toLocaleString('es-AR')}`;
               ×
             </button>
             <img
-              src={proxiedSrc}
+              src={imageSrc}
               alt={familia.nombre}
               className="w-full h-auto max-h-[85vh] object-contain rounded-lg"
               onError={(e) => { e.currentTarget.src = placeholder; }}
