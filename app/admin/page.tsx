@@ -264,7 +264,7 @@ export default function AdminPage() {
                 <div>
                   <p className="text-sm text-gray-600">Requieren Atención</p>
                   <p className="text-3xl font-bold text-orange-600 mt-1">
-                    {(stats.productosSinFoto + stats.productosStockBajo + stats.productosSinPrecio + stats.productosSinMarca).toLocaleString()}
+                    {((stats.productosSinFoto || 0) + (stats.productosStockBajo || 0) + (stats.productosSinPrecio || 0) + (stats.productosSinMarca || 0)).toLocaleString()}
                   </p>
                 </div>
                 <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
@@ -276,33 +276,33 @@ export default function AdminPage() {
         )}
 
         <div className="bg-white rounded-lg shadow mb-6">
-  <div className="flex border-b overflow-x-auto">
-    {sections.map(section => (
-      <button
-        key={section.key}
-        onClick={() => fetchProductos(section.key)}
-        className={`px-6 py-4 font-medium transition-colors whitespace-nowrap flex items-center gap-2 ${
-          activeSection === section.key
-            ? 'border-b-2 border-blue-600 text-blue-600'
-            : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-        }`}
-      >
-        <span>{section.icon}</span>
-        <span>{section.label}</span>
-        {(typeof section.count === 'number' && section.count > 0) && (
-          <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-bold ${
-            section.color === 'red' ? 'bg-red-100 text-red-700' :
-            section.color === 'orange' ? 'bg-orange-100 text-orange-700' :
-            section.color === 'yellow' ? 'bg-yellow-100 text-yellow-700' :
-            'bg-blue-100 text-blue-700'
-          }`}>
-            {section.count}
-          </span>
-        )}
-      </button>
-    ))}
-  </div>
-</div>
+          <div className="flex border-b overflow-x-auto">
+            {sections.map(section => (
+              <button
+                key={section.key}
+                onClick={() => fetchProductos(section.key)}
+                className={`px-6 py-4 font-medium transition-colors whitespace-nowrap flex items-center gap-2 ${
+                  activeSection === section.key
+                    ? 'border-b-2 border-blue-600 text-blue-600'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                }`}
+              >
+                <span>{section.icon}</span>
+                <span>{section.label}</span>
+                {section.count && (
+                  <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-bold ${
+                    section.color === 'red' ? 'bg-red-100 text-red-700' :
+                    section.color === 'orange' ? 'bg-orange-100 text-orange-700' :
+                    section.color === 'yellow' ? 'bg-yellow-100 text-yellow-700' :
+                    'bg-blue-100 text-blue-700'
+                  }`}>
+                    {section.count}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
 
         {loadingData ? (
           <div className="text-center py-12">
@@ -386,44 +386,47 @@ export default function AdminPage() {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {productosFiltrados.map((p) => (
-                        <tr key={p.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">
-                            {p.codigo}
-                          </td>
-                          <td className="px-6 py-4 text-sm text-gray-900">
-                            {p.nombre}
-                          </td>
-                          <td className="px-6 py-4 text-sm text-gray-600">
-                            {p.marca_descripcion || '-'}
-                          </td>
-                          <td className="px-6 py-4 text-sm text-gray-600">
-                            {p.rubro || '-'}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm">
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              p.stock_disponible <= 3 
-                                ? 'bg-orange-100 text-orange-800'
-                                : 'bg-green-100 text-green-800'
-                            }`}>
-                              {p.stock_disponible}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            ${p.precio_lista.toLocaleString('es-AR')}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm">
-                            
-                              href={`/?search=${encodeURIComponent(p.nombre)}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-blue-600 hover:text-blue-800 underline"
-                            >
-                              Ver en catálogo →
-                            </a>
-                          </td>
-                        </tr>
-                      ))}
+                      {productosFiltrados.map((p) => {
+                        const isLowStock = p.stock_disponible <= 3;
+                        return (
+                          <tr key={p.id} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">
+                              {p.codigo}
+                            </td>
+                            <td className="px-6 py-4 text-sm text-gray-900">
+                              {p.nombre}
+                            </td>
+                            <td className="px-6 py-4 text-sm text-gray-600">
+                              {p.marca_descripcion || '-'}
+                            </td>
+                            <td className="px-6 py-4 text-sm text-gray-600">
+                              {p.rubro || '-'}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                isLowStock
+                                  ? 'bg-orange-100 text-orange-800'
+                                  : 'bg-green-100 text-green-800'
+                              }`}>
+                                {p.stock_disponible}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                              ${p.precio_lista.toLocaleString('es-AR')}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                              
+                                href={`/?search=${encodeURIComponent(p.nombre)}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:text-blue-800 underline"
+                              >
+                                Ver en catálogo →
+                              </a>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
