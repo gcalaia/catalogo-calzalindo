@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ConsultaProvider } from "./contexts/ConsultaContext";
-import { ConsultaFloatingButton } from "@/components/ConsultaFloatingButton";
+import ConsultaFloatingButton from "@/components/ConsultaFloatingButton";
 import "./globals.css";
 import Image from "next/image";
 
@@ -16,10 +16,15 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Catálogo Calzalindo",
+  title: "Calzalindo",
   description: "Catálogo de productos Calzalindo",
   icons: {
-    icon: "/favicon.ico", // favicon que subiste a /public/
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+    ],
+    apple: [
+      { url: "/apple-touch-icon.png", sizes: "180x180" }
+    ],
   },
 };
 
@@ -31,7 +36,6 @@ export default function RootLayout({
   return (
     <html lang="es">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        {/* Header con logo */}
         <header className="flex justify-center py-4 shadow-sm bg-white">
           <Image
             src="/logo.jpg"
@@ -42,7 +46,6 @@ export default function RootLayout({
           />
         </header>
 
-        {/* Contenido principal */}
         <ConsultaProvider>
           {children}
           <ConsultaFloatingButton />
