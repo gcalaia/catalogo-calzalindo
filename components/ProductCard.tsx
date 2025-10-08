@@ -83,23 +83,22 @@ function getImageBaseUrl(): string {
 }
 
 function buildImageUrl(variante: Variante | null): string {
+  const placeholder = '/no_image.png';
   if (!variante) return placeholder;
-  
-  // Si tiene URL y es completa (tu caso actual), usarla directamente
+
+  // ✅ Si imagen_url ya es absoluta → usarla tal cual
   if (variante.imagen_url && /^https?:\/\//i.test(variante.imagen_url)) {
     return variante.imagen_url;
   }
-  
-  // Si tiene imagen_url pero no es URL completa (caso viejo)
+
+  // ✅ Si hay imagen_url relativa → agregar base nueva
   if (variante.imagen_url) {
-    const baseUrl = getImageBaseUrl();
-    // NO concatenar si ya incluye http
-    if (variante.imagen_url.includes('http')) {
-      return variante.imagen_url;
-    }
-    return `${baseUrl}/${variante.imagen_url.replace(/^\/+/, '')}`;
+    const baseUrl = (process.env.NEXT_PUBLIC_IMAGE_SERVER_URL || '').replace(/\/+$/, '');
+    return baseUrl
+      ? `${baseUrl}/${variante.imagen_url.replace(/^\/+/, '')}`
+      : placeholder;
   }
-  
+
   return placeholder;
 }
 
