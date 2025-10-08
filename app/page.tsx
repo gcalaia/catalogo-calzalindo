@@ -81,6 +81,30 @@ export default function Home() {
 
   useEffect(() => { fetchFiltros(); }, []);
   useEffect(() => { fetchFiltrosDinamicos(); }, [rubroFilter, subrubroFilter]);
+  
+  useEffect(() => {
+  const params = new URLSearchParams(window.location.search);
+  const search = params.get('search');
+  const rubro = params.get('rubro');
+  const subrubro = params.get('subrubro');
+  const marca = params.get('marca');
+  const talle = params.get('talle');
+  const precioMin = params.get('precioMin');
+  const precioMax = params.get('precioMax');
+  const orden = params.get('orden');
+  
+  if (search) setSearchTerm(search);
+  if (rubro && rubro !== 'all') setRubroFilter(rubro);
+  if (subrubro) setSubrubroFilter(subrubro);
+  if (marca) setMarcaFilter(marca);
+  if (talle) setTalleFilter(talle);
+  if (precioMin) setPrecioMin(precioMin);
+  if (precioMax) setPrecioMax(precioMax);
+  if (orden) setOrdenFilter(orden);
+}, []);
+
+useEffect(() => {
+  const hayBusqueda = searchTerm.trim().length > 0;
 
   useEffect(() => {
     const hayBusqueda = searchTerm.trim().length > 0;
