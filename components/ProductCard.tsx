@@ -85,33 +85,18 @@ function getImageBaseUrl(): string {
 function buildImageUrl(variante: Variante | null): string {
   if (!variante) return placeholder;
   
-  // Si tiene URL completa, usarla
+  // Si tiene URL y es completa (tu caso actual), usarla directamente
   if (variante.imagen_url && /^https?:\/\//i.test(variante.imagen_url)) {
     return variante.imagen_url;
   }
   
-  const baseUrl = getImageBaseUrl();
-  
-  // Si estamos usando el nuevo servidor (detectar por el puerto 8080)
-  if (baseUrl.includes(':8080')) {
-    // Construir path basado en la estructura nueva
-    // Prioridad: 1) year/month/day si están, 2) estructura por defecto
-    
-    if (variante.year && variante.month && variante.day) {
-      // Si tenemos la info de fecha del CSV
-      const filename = `${variante.codigo}000001.webp`;
-      return `${baseUrl}/${variante.year}/${variante.month.padStart(2, '0')}/${variante.day.padStart(2, '0')}/${filename}`;
-    }
-    
-    // Si no hay datos de fecha, intentar con estructura por defecto 2025
-    // Esto lo puedes ajustar según tu lógica de negocio
-    const codigo = variante.codigo.toString().padStart(6, '0');
-    const defaultPath = `2025/01/04/${codigo}000001.webp`;
-    return `${baseUrl}/${defaultPath}`;
-  }
-  
-  // Lógica anterior para el servidor viejo
+  // Si tiene imagen_url pero no es URL completa (caso viejo)
   if (variante.imagen_url) {
+    const baseUrl = getImageBaseUrl();
+    // NO concatenar si ya incluye http
+    if (variante.imagen_url.includes('http')) {
+      return variante.imagen_url;
+    }
     return `${baseUrl}/${variante.imagen_url.replace(/^\/+/, '')}`;
   }
   
