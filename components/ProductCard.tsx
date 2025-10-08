@@ -17,6 +17,10 @@ interface Variante {
   imagen_url: string | null;
   codigo: number;
   talles: Talle[];
+  // Nuevos campos opcionales para el mapeo de imágenes
+  year?: string;
+  month?: string;
+  day?: string;
 }
 
 interface ProductCardProps {
@@ -35,6 +39,11 @@ const placeholder = process.env.NEXT_PUBLIC_IMG_PLACEHOLDER || '/no_image.png';
 
 function getImageBaseUrl(): string {
   if (typeof window === 'undefined') {
+    // Primero intentar con el nuevo servidor
+    if (process.env.NEXT_PUBLIC_IMAGE_SERVER_URL) {
+      return process.env.NEXT_PUBLIC_IMAGE_SERVER_URL;
+    }
+    // Fallback al anterior
     return process.env.NEXT_PUBLIC_IMAGE_BASE_URL || 
            'https://evirtual.calzalindo.com.ar:58000/clz_ventas/static/images';
   }
@@ -44,10 +53,8 @@ function getImageBaseUrl(): string {
   const localParam = urlParams.get('local');
   
   if (localParam === '1') {
-    // Guardar preferencia
     localStorage.setItem('use_local_images', '1');
   } else if (localParam === '0') {
-    // Desactivar modo local
     localStorage.removeItem('use_local_images');
   }
 
@@ -66,16 +73,49 @@ function getImageBaseUrl(): string {
            'http://192.168.2.109/clz_ventas/static/images';
   }
 
+  // Usar el nuevo servidor de imágenes si está configurado
+  if (process.env.NEXT_PUBLIC_IMAGE_SERVER_URL) {
+    return process.env.NEXT_PUBLIC_IMAGE_SERVER_URL;
+  }
+
   return process.env.NEXT_PUBLIC_IMAGE_BASE_URL || 
          'https://evirtual.calzalindo.com.ar:58000/clz_ventas/static/images';
 }
 
-function buildImageUrl(imagen_url: string | null): string {
-  if (!imagen_url) return placeholder;
-  if (/^https?:\/\//i.test(imagen_url)) return imagen_url;
+function buildImageUrl(variante: Variante | null): string {
+  if (!variante) return placeholder;
+  
+  // Si tiene URL completa, usarla
+  if (variante.imagen_url && /^https?:\/\//i.test(variante.imagen_url)) {
+    return variante.imagen_url;
+  }
   
   const baseUrl = getImageBaseUrl();
-  return `${baseUrl}/${imagen_url.replace(/^\/+/, '')}`;
+  
+  // Si estamos usando el nuevo servidor (detectar por el puerto 8080)
+  if (baseUrl.includes(':8080')) {
+    // Construir path basado en la estructura nueva
+    // Prioridad: 1) year/month/day si están, 2) estructura por defecto
+    
+    if (variante.year && variante.month && variante.day) {
+      // Si tenemos la info de fecha del CSV
+      const filename = `${variante.codigo}000001.webp`;
+      return `${baseUrl}/${variante.year}/${variante.month.padStart(2, '0')}/${variante.day.padStart(2, '0')}/${filename}`;
+    }
+    
+    // Si no hay datos de fecha, intentar con estructura por defecto 2025
+    // Esto lo puedes ajustar según tu lógica de negocio
+    const codigo = variante.codigo.toString().padStart(6, '0');
+    const defaultPath = `2025/01/04/${codigo}000001.webp`;
+    return `${baseUrl}/${defaultPath}`;
+  }
+  
+  // Lógica anterior para el servidor viejo
+  if (variante.imagen_url) {
+    return `${baseUrl}/${variante.imagen_url.replace(/^\/+/, '')}`;
+  }
+  
+  return placeholder;
 }
 
 export default function ProductCard({ familia, onImageError }: ProductCardProps) {
@@ -84,32 +124,31 @@ export default function ProductCard({ familia, onImageError }: ProductCardProps)
   const [showImageModal, setShowImageModal] = useState(false);
   const [showAddedFeedback, setShowAddedFeedback] = useState(false);
   const [variantesConError, setVariantesConError] = useState<Set<number>>(new Set());
+  const [imageLoadAttempts, setImageLoadAttempts] = useState<Map<number, number>>(new Map());
   
   const { addItem } = useConsulta();
 
   const variantesValidas = familia.variantes.filter((_, index) => !variantesConError.has(index));
 
-useEffect(() => {
-  // Si todas las variantes fallaron, notificar al padre para ocultar la card
-  if (variantesConError.size > 0 && variantesConError.size === familia.variantes.length) {
-    if (onImageError) {
-      onImageError();
+  useEffect(() => {
+    if (variantesConError.size > 0 && variantesConError.size === familia.variantes.length) {
+      if (onImageError) {
+        onImageError();
+      }
     }
-  }
-}, [variantesConError, familia.variantes.length, onImageError]);
+  }, [variantesConError, familia.variantes.length, onImageError]);
 
-useEffect(() => {
-  // Si la variante actual tiene error, cambiar a la primera válida
-  if (variantesConError.has(selectedColor)) {
-    const primerIndiceValido = familia.variantes.findIndex((_, idx) => !variantesConError.has(idx));
-    if (primerIndiceValido !== -1) {
-      setSelectedColor(primerIndiceValido);
+  useEffect(() => {
+    if (variantesConError.has(selectedColor)) {
+      const primerIndiceValido = familia.variantes.findIndex((_, idx) => !variantesConError.has(idx));
+      if (primerIndiceValido !== -1) {
+        setSelectedColor(primerIndiceValido);
+      }
     }
-  }
-}, [variantesConError, selectedColor, familia.variantes]);
+  }, [variantesConError, selectedColor, familia.variantes]);
 
   const varianteActual = familia.variantes[selectedColor];
-  const imageSrc = buildImageUrl(varianteActual?.imagen_url || null);
+  const imageSrc = buildImageUrl(varianteActual);
 
   const { lista, contado, debito, offContado, offDebito } = calcularPrecios(familia.precio_lista);
 
@@ -130,8 +169,23 @@ useEffect(() => {
   const esUltimasUnidades = stockTotal > 0 && stockTotal <= 3;
 
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>, variantIndex?: number) => {
-    e.currentTarget.src = placeholder;
     const indexToMark = variantIndex ?? selectedColor;
+    const attempts = imageLoadAttempts.get(indexToMark) || 0;
+    
+    // Si es el primer intento y estamos usando el nuevo servidor, intentar con el servidor viejo
+    if (attempts === 0 && process.env.NEXT_PUBLIC_IMAGE_BASE_URL) {
+      setImageLoadAttempts(new Map(imageLoadAttempts).set(indexToMark, attempts + 1));
+      
+      // Intentar con el servidor anterior
+      const oldServerUrl = process.env.NEXT_PUBLIC_IMAGE_BASE_URL || 'https://evirtual.calzalindo.com.ar:58000/clz_ventas/static/images';
+      if (varianteActual?.imagen_url) {
+        e.currentTarget.src = `${oldServerUrl}/${varianteActual.imagen_url.replace(/^\/+/, '')}`;
+        return;
+      }
+    }
+    
+    // Si ya intentamos o no hay alternativa, usar placeholder
+    e.currentTarget.src = placeholder;
     setVariantesConError(prev => new Set(prev).add(indexToMark));
   };
 
