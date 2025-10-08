@@ -39,14 +39,16 @@ function getImageBaseUrl(): string {
            'https://evirtual.calzalindo.com.ar:58000/clz_ventas/static/images';
   }
 
+  // Permitir override manual con ?local=1
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('local') === '1') {
+    return process.env.NEXT_PUBLIC_IMG_BASE_INTERNAL || 
+           'http://192.168.2.109/clz_ventas/static/images';
+  }
+
   const hostname = window.location.hostname;
   
-  if (
-    hostname === 'localhost' ||
-    hostname.startsWith('192.168.') ||
-    hostname.startsWith('10.') ||
-    hostname.startsWith('172.')
-  ) {
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
     return process.env.NEXT_PUBLIC_IMG_BASE_INTERNAL || 
            'http://192.168.2.109/clz_ventas/static/images';
   }
