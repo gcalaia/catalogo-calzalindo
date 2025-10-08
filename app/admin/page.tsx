@@ -146,28 +146,36 @@ export default function AdminPage() {
 };
 
   const exportarCSV = () => {
-    let csv = '';
+  let csv = '';
 
-    if (activeSection === 'sin-foto') {
-      csv = productosSinFotoFiltrados
-        .map(p => `${p.familia_id},"${p.nombre}","${p.marca || ''}","${p.colores.join(', ')}"`)
-        .join('\n');
-      csv = `Familia,Nombre,Marca,Colores\n${csv}`;
-    } else {
-      csv = productosFiltrados
-        .map(p => `${p.codigo},"${p.nombre}","${p.marca_descripcion || ''}",${p.stock_disponible},${p.precio_lista}`)
-        .join('\n');
-      csv = `Codigo,Nombre,Marca,Stock,Precio\n${csv}`;
-    }
+  if (activeSection === 'sin-foto') {
+    csv = 'Familia,Nombre,Marca,Colores,Talles\n' + productosSinFotoFiltrados
+      .map(p =>
+        `${p.familia_id},"${p.nombre.replace(/"/g,'""')}","${(p.marca || '').replace(/"/g,'""')}",` +
+        `"${getColoresTexto(p)}","${getTallesTexto(p,false)}"`
+      ).join('\n');
+  } else if (activeSection === 'stock-bajo') {
+    csv = 'Familia,Nombre,Marca,Colores,Talles,StockTotal,StockMinimo\n' + productosSinFotoFiltrados
+      .map(p =>
+        `${p.familia_id},"${p.nombre.replace(/"/g,'""')}","${(p.marca || '').replace(/"/g,'""')}",` +
+        `"${getColoresTexto(p)}","${getTallesTexto(p,true)}",${p.stockTotal ?? ''},${p.stockMinimo ?? ''}`
+      ).join('\n');
+  } else {
+    csv = 'Codigo,Nombre,Marca,Stock,Precio\n' + productosFiltrados
+      .map(p =>
+        `${p.codigo},"${p.nombre.replace(/"/g,'""')}","${(p.marca_descripcion || '').replace(/"/g,'""')}",` +
+        `${p.stock_disponible},${p.precio_lista}`
+      ).join('\n');
+  }
 
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${activeSection}-${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${activeSection}-${new Date().toISOString().split('T')[0]}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+};
 
   const productosFiltrados = productos.filter((p) => {
     if (!searchTerm) return true;
@@ -245,6 +253,39 @@ export default function AdminPage() {
     );
   }
 
+function getColoresTexto(p: ProductoSinFoto) {
+  if (Array.isArray(p.colores) && p.colores.length > 0) {
+    // stock-bajo: [{ color, talles: [...] }]
+    if (typeof (p.colores[0] as any).color === 'string') {
+      return (p.colores as { color: string }[]).map(c => c.color).join(', ');
+    }
+    // sin-foto: string[]
+    return (p.colores as string[]).join(', ');
+  }
+  return '-';
+}
+
+function getTallesTexto(p: ProductoSinFoto, esStockBajo: boolean) {
+  if (esStockBajo) {
+    // stock-bajo: talles dentro de colores
+    if (
+      Array.isArray(p.colores) &&
+      p.colores.length > 0 &&
+      typeof (p.colores[0] as any).talles !== 'undefined'
+    ) {
+      const planos = (p.colores as { talles: Array<{ talla: string; stock: number }> }[])
+        .flatMap(c => c.talles.map(t => `${t.talla}(${t.stock})`));
+      return planos.length ? planos.join(', ') : '-';
+    }
+    return '-';
+  }
+
+  // sin-foto: talles a nivel familia (puede no existir)
+  if (Array.isArray(p.talles) && p.talles.length > 0) {
+    return p.talles.map(t => `${t.talla}(${t.stock})`).join(', ');
+  }
+  return '-';
+}
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="bg-white shadow">
@@ -391,27 +432,30 @@ export default function AdminPage() {
       <td className="px-6 py-4 text-sm">{p.familia_id}</td>
       <td className="px-6 py-4 text-sm">{p.nombre}</td>
       <td className="px-6 py-4 text-sm">{p.marca || '-'}</td>
-      <td className="px-6 py-4 text-sm">{p.colores.join(', ') || '-'}</td>
 
-      {/* ⬇️ AQUÍ FALTABA CERRAR EL <td> */}
+      {/* Colores */}
       <td className="px-6 py-4 text-sm">
-        {p.talles.map(t => `${t.talla}(${t.stock})`).join(', ')}
+        {getColoresTexto(p)}
       </td>
 
-      {/* columnas extras visibles sólo en stock-bajo */}
+      {/* Talles (seguro para ambos formatos) */}
+      <td className="px-6 py-4 text-sm">
+        {getTallesTexto(p, activeSection === 'stock-bajo')}
+      </td>
+
+      {/* Extras sólo en stock-bajo */}
       <td className="px-6 py-4 text-sm">
         {activeSection === 'stock-bajo' && typeof p.stockTotal === 'number' ? p.stockTotal : '-'}
       </td>
       <td className="px-6 py-4 text-sm">
         {activeSection === 'stock-bajo' && typeof p.stockMinimo === 'number' ? (
-          <span className="px-2 py-1 rounded text-xs bg-orange-100 text-orange-700 font-bold">
-            {p.stockMinimo}
-          </span>
+          <span className="px-2 py-1 rounded text-xs bg-orange-100 text-orange-700 font-bold">{p.stockMinimo}</span>
         ) : '-'}
       </td>
     </tr>
   ))}
 </tbody>
+
 
                   </table>
                 ) : (
