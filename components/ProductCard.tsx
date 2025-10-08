@@ -39,9 +39,22 @@ function getImageBaseUrl(): string {
            'https://evirtual.calzalindo.com.ar:58000/clz_ventas/static/images';
   }
 
-  // Permitir override manual con ?local=1
+  // 1. Leer del query parameter (solo primera vez)
   const urlParams = new URLSearchParams(window.location.search);
-  if (urlParams.get('local') === '1') {
+  const localParam = urlParams.get('local');
+  
+  if (localParam === '1') {
+    // Guardar preferencia
+    localStorage.setItem('use_local_images', '1');
+  } else if (localParam === '0') {
+    // Desactivar modo local
+    localStorage.removeItem('use_local_images');
+  }
+
+  // 2. Leer preferencia guardada
+  const useLocal = localStorage.getItem('use_local_images') === '1';
+
+  if (useLocal) {
     return process.env.NEXT_PUBLIC_IMG_BASE_INTERNAL || 
            'http://192.168.2.109/clz_ventas/static/images';
   }
