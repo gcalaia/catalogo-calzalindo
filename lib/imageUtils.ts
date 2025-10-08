@@ -1,95 +1,55 @@
-// lib/imageUtils.ts
-
 interface Producto {
   codigo?: string;
-  imagen_url?: string;
-  imagen_path?: string;
+  imagen_url?: string;   // puede ser absoluta o relativa
+  imagen_path?: string;  // relativo tipo: 2025/01/03/117265000001.webp
   year?: string;
   month?: string;
   day?: string;
-  nombre?: string;
 }
 
-/**
- * Construye la URL de la imagen basándose en el producto
- * Prioridad:
- * 1. Si tiene imagen_url completa, usarla
- * 2. Si tiene imagen_path, construir URL
- * 3. Si tiene código y fecha, construir path
- * 4. Fallback a placeholder
- */
-export function getImageUrl(producto: Producto): string {
-  const baseUrl = process.env.NEXT_PUBLIC_IMAGE_SERVER_URL || 'http://200.58.109.125:8080/img';
-  
-  // Si ya tiene URL completa
-  if (producto.imagen_url?.startsWith('http')) {
-    return producto.imagen_url;
-  }
-  
-  // Si tiene path relativo
-  if (producto.imagen_path) {
-    return `${baseUrl}/${producto.imagen_path}`;
-  }
-  
-  // Si tiene código y datos de fecha
-  if (producto.codigo) {
-    // Valores por defecto basados en tu estructura actual
-    const year = producto.year || '2025';
-    const month = producto.month?.padStart(2, '0') || '01';
-    const day = producto.day?.padStart(2, '0') || '04';
-    
-    // Formato del archivo: codigo + 000001.webp
-    const filename = `${producto.codigo}000001.webp`;
-    
-    return `${baseUrl}/${year}/${month}/${day}/${filename}`;
-  }
-  
-  // Fallback a placeholder
-  return '/placeholder.jpg';
+const PLACEHOLDER = '/no_image.png';
+
+function getBase(): string {
+  // siempre sin / final
+  return (process.env.NEXT_PUBLIC_IMAGE_SERVER_URL || '').replace(/\/+$/,'');
 }
 
-/**
- * Verifica si una imagen existe (útil para debugging)
- */
+export function getImageUrl(p: Producto): string {
+  // 1) absoluta
+  if (p.imagen_url && /^https?:\/\//i.test(p.imagen_url)) return p.imagen_url;
+
+  const base = getBase();
+  if (!base) return PLACEHOLDER;
+
+  // 2) path relativo (preferido)
+  const rel = p.imagen_path || (p.imagen_url && p.imagen_url.replace(/^\/+/,''));
+  if (rel) return `${base}/${rel}`;
+
+  // 3) solo si vienen fechas explícitas: construyo
+  if (p.codigo && p.year && p.month && p.day) {
+    const m = p.month.padStart(2,'0');
+    const d = p.day.padStart(2,'0');
+    const filename = `${p.codigo}000001.webp`;
+    return `${base}/${p.year}/${m}/${d}/${filename}`;
+  }
+
+  // 4) fallback
+  return PLACEHOLDER;
+}
+
 export async function checkImageExists(url: string): Promise<boolean> {
-  try {
-    const response = await fetch(url, { method: 'HEAD' });
-    return response.ok;
-  } catch {
-    return false;
-  }
+  // Ojo: HEAD puede fallar por CORS; úsalo sólo para debug.
+  try { const r = await fetch(url, { method: 'HEAD' }); return r.ok; } catch { return false; }
 }
 
-/**
- * Obtiene múltiples URLs de imagen para un producto (si tiene varias fotos)
- */
-export function getMultipleImageUrls(producto: Producto, maxImages: number = 5): string[] {
-  const urls: string[] = [];
-  const baseUrl = process.env.NEXT_PUBLIC_IMAGE_SERVER_URL || 'http://200.58.109.125:8080/img';
-  
-  if (!producto.codigo) {
-    return [getImageUrl(producto)];
-  }
-  
-  const year = producto.year || '2025';
-  const month = producto.month?.padStart(2, '0') || '01';
-  const day = producto.day?.padStart(2, '0') || '04';
-  
-  // Generar URLs para múltiples imágenes (000001, 000002, etc.)
-  for (let i = 1; i <= maxImages; i++) {
-    const imageNumber = i.toString().padStart(6, '0');
-    const filename = `${producto.codigo}${imageNumber}.webp`;
-    urls.push(`${baseUrl}/${year}/${month}/${day}/${filename}`);
-  }
-  
-  return urls;
+export function getMultipleImageUrls(p: Producto, maxImages = 5): string[] {
+  const base = getBase();
+  if (!base || !p.codigo || !p.year || !p.month || !p.day) return [getImageUrl(p)];
+  const m = p.month.padStart(2,'0'), d = p.day.padStart(2,'0');
+  return Array.from({length: maxImages}, (_,i) => {
+    const n = String(i+1).padStart(6,'0'); // 000001…
+    return `${base}/${p.year}/${m}/${d}/${p.codigo}${n}.webp`;
+  });
 }
 
-/**
- * Construye URL de thumbnail (misma imagen por ahora)
- */
-export function getThumbnailUrl(producto: Producto): string {
-  // Por ahora usa la misma imagen
-  // En el futuro podrías tener una carpeta /thumbnails/
-  return getImageUrl(producto);
-}
+export const getThumbnailUrl = getImageUrl;
