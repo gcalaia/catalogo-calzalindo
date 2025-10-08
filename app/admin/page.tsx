@@ -22,9 +22,15 @@ interface ProductoSinFoto {
   marca: string | null;
   rubro: string | null;
   imagen_url: string | null;
-  colores: string[];
-  talles: Array<{ talla: string; stock: number }>;
-  // ⬇️ para la vista stock-bajo
+
+  // puede venir como array de strings (sin-foto)
+  // o como array de objetos con talles (stock-bajo)
+  colores: string[] | { color: string; talles: Array<{ talla: string; stock: number }> }[];
+
+  // en sin-foto puede venir por separado
+  talles?: Array<{ talla: string; stock: number }>;
+
+  // sólo stock-bajo
   stockTotal?: number;
   stockMinimo?: number;
 }
