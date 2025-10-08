@@ -79,46 +79,48 @@ export default function Home() {
     setImagenesFallidas(prev => new Set(prev).add(familiaId));
   }, []);
 
+ // filtros iniciales
   useEffect(() => { fetchFiltros(); }, []);
+  
+  // filtros dinámicos
   useEffect(() => { fetchFiltrosDinamicos(); }, [rubroFilter, subrubroFilter]);
   
+  // ⬇️ NUEVO: leer parámetros de URL
   useEffect(() => {
-  const params = new URLSearchParams(window.location.search);
-  const search = params.get('search');
-  const rubro = params.get('rubro');
-  const subrubro = params.get('subrubro');
-  const marca = params.get('marca');
-  const talle = params.get('talle');
-  const precioMin = params.get('precioMin');
-  const precioMax = params.get('precioMax');
-  const orden = params.get('orden');
-  
-  if (search) setSearchTerm(search);
-  if (rubro && rubro !== 'all') setRubroFilter(rubro);
-  if (subrubro) setSubrubroFilter(subrubro);
-  if (marca) setMarcaFilter(marca);
-  if (talle) setTalleFilter(talle);
-  if (precioMin) setPrecioMin(precioMin);
-  if (precioMax) setPrecioMax(precioMax);
-  if (orden) setOrdenFilter(orden);
-}, []);
+    const params = new URLSearchParams(window.location.search);
+    const search = params.get('search');
+    const rubro = params.get('rubro');
+    const subrubro = params.get('subrubro');
+    const marca = params.get('marca');
+    const talle = params.get('talle');
+    const precioMinParam = params.get('precioMin');
+    const precioMaxParam = params.get('precioMax');
+    const orden = params.get('orden');
 
-useEffect(() => {
-  const hayBusqueda = searchTerm.trim().length > 0;
+    if (search) setSearchTerm(search);
+    if (rubro && rubro !== 'all') setRubroFilter(rubro);
+    if (subrubro) setSubrubroFilter(subrubro);
+    if (marca) setMarcaFilter(marca);
+    if (talle) setTalleFilter(talle);
+    if (precioMinParam) setPrecioMin(precioMinParam);
+    if (precioMaxParam) setPrecioMax(precioMaxParam);
+    if (orden) setOrdenFilter(orden);
+    }, []);
 
-  useEffect(() => {
-    const hayBusqueda = searchTerm.trim().length > 0;
-    const hayFiltrosEspecificos =
-      subrubroFilter || talleFilter || marcaFilter || precioMin || precioMax || soloSinFoto;
+      // búsqueda de productos
+      useEffect(() => {
+        const hayBusqueda = searchTerm.trim().length > 0;
+        const hayFiltrosEspecificos =
+          subrubroFilter || talleFilter || marcaFilter || precioMin || precioMax || soloSinFoto;
 
-    if (hayBusqueda || (rubroFilter === 'all' && hayFiltrosEspecificos) || (rubroFilter !== 'all' && hayFiltrosEspecificos)) {
-      const id = setTimeout(fetchProductos, 400);
-      return () => clearTimeout(id);
-    } else {
-      setFamilias([]);
-    }
-  }, [searchTerm, rubroFilter, subrubroFilter, talleFilter, marcaFilter, precioMin, precioMax, ordenFilter, soloSinFoto]);
-
+        if (hayBusqueda || (rubroFilter === 'all' && hayFiltrosEspecificos) || (rubroFilter !== 'all' && hayFiltrosEspecificos)) {
+          const id = setTimeout(fetchProductos, 400);
+          return () => clearTimeout(id);
+        } else {
+          setFamilias([]);
+        }
+      }, [searchTerm, rubroFilter, subrubroFilter, talleFilter, marcaFilter, precioMin, precioMax, ordenFilter, soloSinFoto]);
+ 
   async function fetchFiltros() {
     try {
       setLoadingFilters(true);
