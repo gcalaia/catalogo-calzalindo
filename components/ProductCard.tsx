@@ -82,27 +82,29 @@ function getImageBaseUrl(): string {
          'https://evirtual.calzalindo.com.ar:58000/clz_ventas/static/images';
 }
 
-function buildImageUrl(v: { imagen_url?: string } | null): string {
+function buildImageUrl(v: { imagen_url?: string | null } | null): string {
   const placeholder = '/no_image.png';
-  if (!v?.imagen_url) return placeholder;
+  if (!v || v.imagen_url == null) return placeholder; // null o undefined
 
   const ipBase = 'http://200.58.109.125:8080/img/';
-  const httpsBase = (process.env.NEXT_PUBLIC_IMAGE_SERVER_URL || '').replace(/\/+$/,'') + '/';
+  const httpsBase = ((process.env.NEXT_PUBLIC_IMAGE_SERVER_URL || '').replace(/\/+$/,'') + '/');
 
-  // si viene absoluta a la IP (http), la reescribo a la base https configurada
+  // si viene absoluta a la IP (http), reescribir a base https configurada
   if (v.imagen_url.startsWith(ipBase) && httpsBase.startsWith('https://')) {
     return v.imagen_url.replace(ipBase, httpsBase);
   }
 
-  // si ya es https absoluta, usar tal cual
+  // absoluta https → usar tal cual
   if (/^https:\/\//i.test(v.imagen_url)) return v.imagen_url;
 
-  // si es relativa, prepend base https
+  // relativa → prepend base https
   if (httpsBase.startsWith('https://')) {
     return httpsBase + v.imagen_url.replace(/^\/+/, '');
   }
+
   return placeholder;
 }
+
 
 
 export default function ProductCard({ familia, onImageError }: ProductCardProps) {
