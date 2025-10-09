@@ -82,25 +82,28 @@ function getImageBaseUrl(): string {
          'https://evirtual.calzalindo.com.ar:58000/clz_ventas/static/images';
 }
 
-function buildImageUrl(variante: Variante | null): string {
+function buildImageUrl(v: { imagen_url?: string } | null): string {
   const placeholder = '/no_image.png';
-  if (!variante) return placeholder;
+  if (!v?.imagen_url) return placeholder;
 
-  // ✅ Si imagen_url ya es absoluta → usarla tal cual
-  if (variante.imagen_url && /^https?:\/\//i.test(variante.imagen_url)) {
-    return variante.imagen_url;
+  const ipBase = 'http://200.58.109.125:8080/img/';
+  const httpsBase = (process.env.NEXT_PUBLIC_IMAGE_SERVER_URL || '').replace(/\/+$/,'') + '/';
+
+  // si viene absoluta a la IP (http), la reescribo a la base https configurada
+  if (v.imagen_url.startsWith(ipBase) && httpsBase.startsWith('https://')) {
+    return v.imagen_url.replace(ipBase, httpsBase);
   }
 
-  // ✅ Si hay imagen_url relativa → agregar base nueva
-  if (variante.imagen_url) {
-    const baseUrl = (process.env.NEXT_PUBLIC_IMAGE_SERVER_URL || '').replace(/\/+$/, '');
-    return baseUrl
-      ? `${baseUrl}/${variante.imagen_url.replace(/^\/+/, '')}`
-      : placeholder;
-  }
+  // si ya es https absoluta, usar tal cual
+  if (/^https:\/\//i.test(v.imagen_url)) return v.imagen_url;
 
+  // si es relativa, prepend base https
+  if (httpsBase.startsWith('https://')) {
+    return httpsBase + v.imagen_url.replace(/^\/+/, '');
+  }
   return placeholder;
 }
+
 
 export default function ProductCard({ familia, onImageError }: ProductCardProps) {
   const [selectedColor, setSelectedColor] = useState(0);
