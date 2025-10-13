@@ -86,11 +86,15 @@ export default function ProductCard({ familia, onImageError }: ProductCardProps)
         
         if (data.url_absoluta) {
           // Convertir URL absoluta a proxy local para evitar mixed content
-          const urlObj = new URL(data.url_absoluta);
-          const pathParts = urlObj.pathname.split('/');
-          // Construir: /proxy/imagen/2024/06/27/319351000001.webp
-          const proxyUrl = `/proxy/imagen/${pathParts.slice(-4).join('/')}`;
-          setImagenesUrls(prev => new Map(prev).set(selectedColor, proxyUrl));
+          // De: http://200.58.109.125:8007/imagenes/2024/06/27/319351000001.webp
+          // A: /proxy/imagen/2024/06/27/319351000001.webp
+          const match = data.url_absoluta.match(/\/imagenes\/(.+)$/);
+          if (match) {
+            const proxyUrl = `/proxy/imagen/${match[1]}`;
+            setImagenesUrls(prev => new Map(prev).set(selectedColor, proxyUrl));
+          } else {
+            throw new Error('Formato de URL inválido');
+          }
         } else {
           throw new Error('URL no disponible');
         }
