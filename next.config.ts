@@ -28,6 +28,15 @@ const nextConfig: NextConfig = {
     minimumCacheTTL: 60 * 60 * 24 * 30,
     formats: ['image/webp'],
   },
+  // NUEVO: Proxy para la API de imágenes
+  async rewrites() {
+    return [
+      {
+        source: '/api/imagen/:codigo',
+        destination: 'http://200.58.109.125:8007/api/imagen/:codigo',
+      },
+    ];
+  },
 };
 
 export default nextConfig;

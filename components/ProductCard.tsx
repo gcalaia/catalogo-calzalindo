@@ -41,63 +41,65 @@ export default function ProductCard({ familia, onImageError }: ProductCardProps)
   const [showAddedFeedback, setShowAddedFeedback] = useState(false);
   const [variantesConError, setVariantesConError] = useState<Set<number>>(new Set());
   const [imagenesUrls, setImagenesUrls] = useState<Map<number, string>>(new Map());
-  const [loadingImages, setLoadingImages] = useState<Set<number>>(new Set());
+  const [isLoadingImage, setIsLoadingImage] = useState(false);
   
   const { addItem } = useConsulta();
 
-  // Cargar URLs de imágenes desde la API
+  // Solo cargar la imagen de la variante actual
   useEffect(() => {
-    const fetchImageUrls = async () => {
-      const newUrls = new Map(imagenesUrls);
-      const newLoading = new Set<number>();
+    const fetchImageUrl = async () => {
+      const variante = familia.variantes[selectedColor];
       
-      for (let i = 0; i < familia.variantes.length; i++) {
-        const variante = familia.variantes[i];
+      // Si ya tenemos la URL en cache, no hacer nada
+      if (imagenesUrls.has(selectedColor)) {
+        return;
+      }
+      
+      // Si ya está marcada como error, no intentar de nuevo
+      if (variantesConError.has(selectedColor)) {
+        return;
+      }
+      
+      // Si no tiene código, marcar como error
+      if (!variante.codigo) {
+        setVariantesConError(prev => new Set(prev).add(selectedColor));
+        return;
+      }
+      
+      setIsLoadingImage(true);
+      
+      try {
+        const response = await fetch(`${API_IMAGEN_URL}/${variante.codigo}`, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+          },
+          signal: AbortSignal.timeout(5000) // Timeout de 5 segundos
+        });
         
-        // Si ya tenemos la URL o ya está cargando, skip
-        if (imagenesUrls.has(i) || loadingImages.has(i)) continue;
-        
-        // Si no tiene código, marcar como error
-        if (!variante.codigo) {
-          setVariantesConError(prev => new Set(prev).add(i));
-          continue;
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
         }
         
-        newLoading.add(i);
-        setLoadingImages(prev => new Set(prev).add(i));
+        const data = await response.json();
         
-        try {
-          // Llamar a la nueva API
-          const response = await fetch(`${API_IMAGEN_URL}/${variante.codigo}`);
-          
-          if (!response.ok) throw new Error('Imagen no encontrada');
-          
-          const data = await response.json();
-          
-          if (data.url_absoluta) {
-            newUrls.set(i, data.url_absoluta);
-            setImagenesUrls(newUrls);
-          } else {
-            throw new Error('URL no disponible');
-          }
-        } catch (error) {
-          console.error(`Error cargando imagen para código ${variante.codigo}:`, error);
-          setVariantesConError(prev => new Set(prev).add(i));
-        } finally {
-          setLoadingImages(prev => {
-            const next = new Set(prev);
-            next.delete(i);
-            return next;
-          });
+        if (data.url_absoluta) {
+          setImagenesUrls(prev => new Map(prev).set(selectedColor, data.url_absoluta));
+        } else {
+          throw new Error('URL no disponible');
         }
+      } catch (error) {
+        console.error(`Error cargando imagen para código ${variante.codigo}:`, error);
+        setVariantesConError(prev => new Set(prev).add(selectedColor));
+      } finally {
+        setIsLoadingImage(false);
       }
     };
     
-    fetchImageUrls();
-  }, [familia.variantes]);
+    fetchImageUrl();
+  }, [selectedColor, familia.variantes, imagenesUrls, variantesConError]);
 
-  const variantesValidas = familia.variantes.filter((_, index) => !variantesConError.has(index));
-
+  // Verificar si todas las variantes tienen error
   useEffect(() => {
     if (variantesConError.size > 0 && variantesConError.size === familia.variantes.length) {
       if (onImageError) {
@@ -106,10 +108,11 @@ export default function ProductCard({ familia, onImageError }: ProductCardProps)
     }
   }, [variantesConError, familia.variantes.length, onImageError]);
 
+  // Si la variante actual tiene error, cambiar a la primera válida
   useEffect(() => {
     if (variantesConError.has(selectedColor)) {
       const primerIndiceValido = familia.variantes.findIndex((_, idx) => !variantesConError.has(idx));
-      if (primerIndiceValido !== -1) {
+      if (primerIndiceValido !== -1 && primerIndiceValido !== selectedColor) {
         setSelectedColor(primerIndiceValido);
       }
     }
@@ -117,7 +120,6 @@ export default function ProductCard({ familia, onImageError }: ProductCardProps)
 
   const varianteActual = familia.variantes[selectedColor];
   const imageSrc = imagenesUrls.get(selectedColor) || placeholder;
-  const isLoadingImage = loadingImages.has(selectedColor);
 
   const { lista, contado, debito, offContado, offDebito } = calcularPrecios(familia.precio_lista);
 
@@ -173,6 +175,8 @@ Precio: $${sel.value.toLocaleString('es-AR')}`;
     setTimeout(() => setShowAddedFeedback(false), 2000);
   };
 
+  // Si todas las variantes tienen error, no mostrar la card
+  const variantesValidas = familia.variantes.filter((_, index) => !variantesConError.has(index));
   if (variantesValidas.length === 0) {
     return null;
   }
