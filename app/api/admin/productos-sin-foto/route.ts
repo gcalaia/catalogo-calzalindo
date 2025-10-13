@@ -3,23 +3,62 @@ import { prisma } from '@/lib/prisma';
 
 export async function GET() {
   try {
+    // 1. Primero, veamos cuántos productos hay EN TOTAL con stock
+    const totalConStock = await prisma.producto.count({
+      where: {
+        stock_disponible: { gt: 0 },
+        rubro: { in: ['DAMAS', 'HOMBRES', 'NIÑOS', 'NIÑAS', 'UNISEX'] },
+      }
+    });
+
+    // 2. Cuántos tienen imagen_url null o vacía
+    const sinImagenUrl = await prisma.producto.count({
+      where: {
+        stock_disponible: { gt: 0 },
+        rubro: { in: ['DAMAS', 'HOMBRES', 'NIÑOS', 'NIÑAS', 'UNISEX'] },
+        OR: [
+          { imagen_url: null },
+          { imagen_url: '' },
+        ]
+      }
+    });
+
+    // 3. Cuántos tienen proxy
+    const conProxy = await prisma.producto.count({
+      where: {
+        stock_disponible: { gt: 0 },
+        rubro: { in: ['DAMAS', 'HOMBRES', 'NIÑOS', 'NIÑAS', 'UNISEX'] },
+        imagen_url: { startsWith: '/proxy/imagen/' }
+      }
+    });
+
+    // 4. Traer algunos ejemplos de URLs para ver qué formato tienen
+    const ejemplos = await prisma.producto.findMany({
+      where: {
+        stock_disponible: { gt: 0 },
+        rubro: { in: ['DAMAS', 'HOMBRES', 'NIÑOS', 'NIÑAS', 'UNISEX'] },
+      },
+      select: {
+        codigo: true,
+        imagen_url: true,
+      },
+      take: 10
+    });
+
+    console.log('=== DEBUG IMÁGENES ===');
+    console.log('Total con stock:', totalConStock);
+    console.log('Sin imagen_url:', sinImagenUrl);
+    console.log('Con proxy:', conProxy);
+    console.log('Ejemplos de URLs:', ejemplos);
+
+    // 5. Ahora sí, traer los productos sin imagen
     const productos = await prisma.producto.findMany({
       where: {
         stock_disponible: { gt: 0 },
         rubro: { in: ['DAMAS', 'HOMBRES', 'NIÑOS', 'NIÑAS', 'UNISEX'] },
-        AND: [
-          {
-            OR: [
-              { imagen_url: null },
-              { imagen_url: '' },
-            ]
-          },
-          // Excluir los que ya tienen proxy válido
-          {
-            NOT: {
-              imagen_url: { startsWith: '/proxy/imagen/' }
-            }
-          }
+        OR: [
+          { imagen_url: null },
+          { imagen_url: '' },
         ]
       },
       select: {
@@ -37,6 +76,8 @@ export async function GET() {
       take: 500,
       orderBy: { id: 'desc' }
     });
+
+    console.log('Productos sin imagen encontrados:', productos.length);
 
     // Agrupar por familia
     const familias = new Map<string, any>();
@@ -68,6 +109,12 @@ export async function GET() {
     }));
 
     return NextResponse.json({
+      debug: {
+        totalConStock,
+        sinImagenUrl,
+        conProxy,
+        ejemplos: ejemplos.map(e => ({ codigo: e.codigo, url: e.imagen_url }))
+      },
       total: resultado.length,
       totalProductos: productos.length,
       productos: resultado,
