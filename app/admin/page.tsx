@@ -131,7 +131,7 @@ export default function ProductosSinFoto() {
     <div className="min-h-screen bg-gray-50 py-8 px-4">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-3xl font-bold text-gray-900 mb-2">
@@ -150,7 +150,7 @@ export default function ProductosSinFoto() {
               href="/"
               className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50"
             >
-              ← Volver al catálogo
+              &larr; Volver al catálogo
             </a>
           </div>
         </div>
