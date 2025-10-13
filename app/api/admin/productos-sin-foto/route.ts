@@ -14,7 +14,7 @@ export async function GET() {
               { imagen_url: '' },
             ]
           },
-          // IMPORTANTE: Excluir los que ya tienen proxy válido
+          // Excluir los que ya tienen proxy válido
           {
             NOT: {
               imagen_url: { startsWith: '/proxy/imagen/' }
@@ -47,7 +47,6 @@ export async function GET() {
       if (!familias.has(familiaKey)) {
         familias.set(familiaKey, {
           familia_id: familiaKey,
-          codigo: extraerCodigo(familiaKey), // ⬅️ NUEVO: extraer código limpio
           nombre: p.nombre.split(/\s+/).slice(0, 5).join(' '),
           marca: p.marca_descripcion,
           rubro: p.rubro,
@@ -81,10 +80,4 @@ export async function GET() {
       { status: 500 }
     );
   }
-}
-
-// Helper para extraer código numérico de familia_id
-function extraerCodigo(familiaId: string): string {
-  const match = familiaId.match(/(\d{5,})/);
-  return match ? match[1] : familiaId;
 }
