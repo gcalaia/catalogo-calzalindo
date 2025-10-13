@@ -1,4 +1,3 @@
-// app/api/admin/productos-sin-foto/route.ts
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
@@ -8,13 +7,19 @@ export async function GET() {
       where: {
         stock_disponible: { gt: 0 },
         rubro: { in: ['DAMAS', 'HOMBRES', 'NIÑOS', 'NIÑAS', 'UNISEX'] },
-        OR: [
-          { imagen_url: null },
-          { imagen_url: '' },
-          { imagen_url: { contains: 'no_image' } },
-          { imagen_url: { contains: 'placeholder' } },
-          { imagen_url: { endsWith: '000000000001.jpg' } },
-          { imagen_url: { contains: '0000000000000' } },
+        AND: [
+          {
+            OR: [
+              { imagen_url: null },
+              { imagen_url: '' },
+            ]
+          },
+          // IMPORTANTE: Excluir los que ya tienen proxy válido
+          {
+            NOT: {
+              imagen_url: { startsWith: '/proxy/imagen/' }
+            }
+          }
         ]
       },
       select: {
@@ -42,6 +47,7 @@ export async function GET() {
       if (!familias.has(familiaKey)) {
         familias.set(familiaKey, {
           familia_id: familiaKey,
+          codigo: extraerCodigo(familiaKey), // ⬅️ NUEVO: extraer código limpio
           nombre: p.nombre.split(/\s+/).slice(0, 5).join(' '),
           marca: p.marca_descripcion,
           rubro: p.rubro,
@@ -64,7 +70,7 @@ export async function GET() {
 
     return NextResponse.json({
       total: resultado.length,
-      totalProductos: productos.length, // ⬅️ NUEVO: total de productos individuales
+      totalProductos: productos.length,
       productos: resultado,
     });
 
@@ -75,4 +81,10 @@ export async function GET() {
       { status: 500 }
     );
   }
+}
+
+// Helper para extraer código numérico de familia_id
+function extraerCodigo(familiaId: string): string {
+  const match = familiaId.match(/(\d{5,})/);
+  return match ? match[1] : familiaId;
 }
