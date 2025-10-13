@@ -1,270 +1,318 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface Producto {
-  id: number;
-  codigo: number;
+  familia_id: string;
   nombre: string;
-  marca_descripcion: string | null;
-  rubro: string | null;
-  subrubro_nombre: string | null;
-  stock_disponible: number;
-  precio_lista: number;
-  familia_id: string | null;
+  marca: string;
+  rubro: string;
+  imagen_url: string | null;
+  colores: string[];
+  talles: Array<{ talla: string; stock: number }>;
 }
 
-export default function AdminPage() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+const API_IMAGEN_URL = process.env.NEXT_PUBLIC_API_IMAGEN_URL || '/api/imagen';
 
+export default function ProductosSinFoto() {
   const [productos, setProductos] = useState<Producto[]>([]);
-  const [loadingData, setLoadingData] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [totalProductos, setTotalProductos] = useState(0);
+  const [procesando, setProcesando] = useState<Set<string>>(new Set());
+  const [imagenPreview, setImagenPreview] = useState<Map<string, string>>(new Map());
 
-  // Verificar si ya está autenticado (en localStorage)
   useEffect(() => {
-    const auth = localStorage.getItem('admin_auth');
-    if (auth === 'true') {
-      setIsAuthenticated(true);
-      fetchProductos();
-    }
+    cargarProductos();
   }, []);
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-
+  const cargarProductos = async () => {
     try {
-      const res = await fetch('/api/admin/auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password })
-      });
-
+      setLoading(true);
+      const res = await fetch('/api/admin/productos-sin-foto');
       const data = await res.json();
-
-      if (data.success) {
-        localStorage.setItem('admin_auth', 'true');
-        setIsAuthenticated(true);
-        fetchProductos();
-      } else {
-        setError('Contraseña incorrecta');
-      }
-    } catch (err) {
-      setError('Error al autenticar');
+      setProductos(data.productos || []);
+      setTotalProductos(data.totalProductos || 0);
+    } catch (error) {
+      console.error('Error cargando productos:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('admin_auth');
-    setIsAuthenticated(false);
-    setPassword('');
-  };
-
-  const fetchProductos = async () => {
-    setLoadingData(true);
+  const buscarImagen = async (codigo: string) => {
     try {
-      const res = await fetch('/api/admin/productos-sin-foto');
+      const res = await fetch(`${API_IMAGEN_URL}/${codigo}`);
+      if (!res.ok) throw new Error('Imagen no encontrada');
+      
       const data = await res.json();
-      setProductos(data.productos || []);
-    } catch (err) {
-      console.error('Error:', err);
-    } finally {
-      setLoadingData(false);
+      if (data.url_absoluta) {
+        // Convertir a proxy local
+        const match = data.url_absoluta.match(/\/imagenes\/(.+)$/);
+        if (match) {
+          return `/proxy/imagen/${match[1]}`;
+        }
+      }
+      return null;
+    } catch (error) {
+      return null;
     }
   };
 
-  const exportarCSV = () => {
-    const csv = productos.map(p => 
-      `${p.codigo},"${p.nombre}","${p.marca_descripcion || ''}",${p.stock_disponible},${p.precio_lista}`
-    ).join('\n');
+  const verificarImagen = async (familiaId: string, codigo: string) => {
+    setProcesando(prev => new Set(prev).add(familiaId));
     
-    const blob = new Blob([`Codigo,Nombre,Marca,Stock,Precio\n${csv}`], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `productos-sin-foto-${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const urlImagen = await buscarImagen(codigo);
+    
+    if (urlImagen) {
+      setImagenPreview(prev => new Map(prev).set(familiaId, urlImagen));
+    } else {
+      alert('No se encontró imagen para este código');
+    }
+    
+    setProcesando(prev => {
+      const next = new Set(prev);
+      next.delete(familiaId);
+      return next;
+    });
   };
 
-  // PANTALLA DE LOGIN
-  if (!isAuthenticated) {
+  const asignarImagen = async (familiaId: string, codigo: string) => {
+    const urlImagen = imagenPreview.get(familiaId);
+    if (!urlImagen) return;
+
+    setProcesando(prev => new Set(prev).add(familiaId));
+
+    try {
+      const res = await fetch('/api/admin/actualizar-imagen', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ codigo, imagen_url: urlImagen })
+      });
+
+      const data = await res.json();
+      
+      if (data.success) {
+        alert(`✅ ${data.actualizados} producto(s) actualizados`);
+        // Remover de la lista
+        setProductos(prev => prev.filter(p => p.familia_id !== familiaId));
+        setImagenPreview(prev => {
+          const next = new Map(prev);
+          next.delete(familiaId);
+          return next;
+        });
+      } else {
+        alert('Error al actualizar');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Error al actualizar imagen');
+    } finally {
+      setProcesando(prev => {
+        const next = new Set(prev);
+        next.delete(familiaId);
+        return next;
+      });
+    }
+  };
+
+  const extraerCodigo = (familiaId: string): string => {
+    // Intenta extraer el código de la familia_id
+    // Ejemplo: "72250702" o "FXXX-72250702" -> "72250702"
+    const match = familiaId.match(/(\d{6,})/);
+    return match ? match[1] : familiaId;
+  };
+
+  if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
-          <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                      d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-              </svg>
-            </div>
-            <h1 className="text-2xl font-bold text-gray-900">Panel de Administración</h1>
-            <p className="text-gray-500 mt-2">Ingresá la contraseña para continuar</p>
-          </div>
-
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Contraseña
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Ingresá tu contraseña"
-                disabled={loading}
-                autoFocus
-              />
-            </div>
-
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-                {error}
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={loading || !password}
-              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-lg transition-colors"
-            >
-              {loading ? 'Verificando...' : 'Ingresar'}
-            </button>
-          </form>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4" />
+          <p className="text-gray-600">Cargando productos...</p>
         </div>
       </div>
     );
   }
 
-  // PANEL ADMIN
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <a href="/" className="text-blue-600 hover:text-blue-800">
-              ← Volver al catálogo
-            </a>
-            <span className="text-gray-300">|</span>
-            <h1 className="text-xl font-bold text-gray-900">Panel de Administración</h1>
+    <div className="min-h-screen bg-gray-50 py-8 px-4">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            Productos sin Foto
+          </h1>
+          <div className="flex gap-4 text-sm text-gray-600">
+            <span className="bg-orange-100 text-orange-800 px-3 py-1 rounded-full font-medium">
+              {productos.length} familias sin imagen
+            </span>
+            <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full font-medium">
+              {totalProductos} productos individuales
+            </span>
           </div>
-          <button
-            onClick={handleLogout}
-            className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50"
-          >
-            Cerrar sesión
-          </button>
         </div>
-      </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        
-        {loadingData ? (
-          <div className="text-center py-12">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-            <p className="text-gray-600">Cargando datos...</p>
+        {/* Lista de productos */}
+        {productos.length === 0 ? (
+          <div className="bg-white rounded-lg shadow-md p-12 text-center">
+            <div className="text-6xl mb-4">🎉</div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+              ¡Todos los productos tienen imagen!
+            </h2>
+            <p className="text-gray-600">
+              No hay productos sin foto en este momento
+            </p>
           </div>
         ) : (
-          <>
-            <div className="bg-white rounded-lg shadow mb-6">
-              <div className="p-6 border-b">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-2xl font-bold text-gray-900">Productos sin foto</h2>
-                    <p className="text-gray-600 mt-1">
-                      {productos.length} productos con stock pero sin imagen
-                    </p>
-                  </div>
-                  <button
-                    onClick={exportarCSV}
-                    className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-colors flex items-center gap-2"
-                  >
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                            d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    Exportar CSV
-                  </button>
-                </div>
-              </div>
+          <div className="grid gap-4">
+            {productos.map((producto) => {
+              const codigo = extraerCodigo(producto.familia_id);
+              const tieneProcesando = procesando.has(producto.familia_id);
+              const tienePreview = imagenPreview.has(producto.familia_id);
 
-              {productos.length === 0 ? (
-                <div className="p-12 text-center">
-                  <svg className="mx-auto h-12 w-12 text-green-500 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                          d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">¡Excelente!</h3>
-                  <p className="text-gray-600">Todos los productos con stock tienen foto</p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Código
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Nombre
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Marca
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Rubro
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Stock
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Precio
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {productos.map((p) => (
-                        <tr key={p.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">
-                            {p.codigo}
-                          </td>
-                          <td className="px-6 py-4 text-sm text-gray-900">
-                            {p.nombre}
-                          </td>
-                          <td className="px-6 py-4 text-sm text-gray-600">
-                            {p.marca_descripcion || '-'}
-                          </td>
-                          <td className="px-6 py-4 text-sm text-gray-600">
-                            {p.rubro || '-'}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm">
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              p.stock_disponible <= 3 
-                                ? 'bg-orange-100 text-orange-800'
-                                : 'bg-green-100 text-green-800'
-                            }`}>
-                              {p.stock_disponible}
+              return (
+                <div
+                  key={producto.familia_id}
+                  className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow"
+                >
+                  <div className="flex gap-6">
+                    {/* Columna de imagen */}
+                    <div className="flex-shrink-0">
+                      <div className="w-48 h-48 bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center">
+                        {tienePreview ? (
+                          <img
+                            src={imagenPreview.get(producto.familia_id)}
+                            alt={producto.nombre}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.currentTarget.src = '/no_image.png';
+                            }}
+                          />
+                        ) : (
+                          <div className="text-center p-4">
+                            <svg
+                              className="w-16 h-16 text-gray-300 mx-auto mb-2"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                              />
+                            </svg>
+                            <p className="text-xs text-gray-400">Sin imagen</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Columna de información */}
+                    <div className="flex-1">
+                      <div className="mb-4">
+                        <h3 className="text-xl font-bold text-gray-900 mb-1">
+                          {producto.nombre}
+                        </h3>
+                        <div className="flex flex-wrap gap-2 text-sm text-gray-600">
+                          {producto.marca && (
+                            <span className="bg-gray-100 px-2 py-1 rounded">
+                              {producto.marca}
                             </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            ${p.precio_lista.toLocaleString('es-AR')}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                          )}
+                          <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded">
+                            {producto.rubro}
+                          </span>
+                          <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded font-mono">
+                            Código: {codigo}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                          <p className="text-xs text-gray-500 mb-1">Colores:</p>
+                          <div className="flex flex-wrap gap-1">
+                            {producto.colores.map((color, i) => (
+                              <span
+                                key={i}
+                                className="text-xs bg-gray-100 px-2 py-1 rounded"
+                              >
+                                {color}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500 mb-1">Talles:</p>
+                          <div className="flex flex-wrap gap-1">
+                            {producto.talles.slice(0, 8).map((talle, i) => (
+                              <span
+                                key={i}
+                                className="text-xs bg-gray-100 px-2 py-1 rounded"
+                              >
+                                {talle.talla} ({talle.stock})
+                              </span>
+                            ))}
+                            {producto.talles.length > 8 && (
+                              <span className="text-xs text-gray-400 px-2 py-1">
+                                +{producto.talles.length - 8} más
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Botones */}
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => verificarImagen(producto.familia_id, codigo)}
+                          disabled={tieneProcesando}
+                          className="flex-1 flex items-center justify-center gap-2 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                        >
+                          {tieneProcesando ? (
+                            <>
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                              Buscando...
+                            </>
+                          ) : (
+                            <>
+                              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                              </svg>
+                              Buscar imagen
+                            </>
+                          )}
+                        </button>
+
+                        {tienePreview && (
+                          <button
+                            onClick={() => asignarImagen(producto.familia_id, codigo)}
+                            disabled={tieneProcesando}
+                            className="flex-1 flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 disabled:bg-gray-300 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                          >
+                            {tieneProcesando ? (
+                              <>
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                                Guardando...
+                              </>
+                            ) : (
+                              <>
+                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                                Asignar imagen
+                              </>
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              )}
-            </div>
-          </>
+              );
+            })}
+          </div>
         )}
       </div>
     </div>
