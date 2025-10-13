@@ -32,7 +32,8 @@ interface ProductCardProps {
 }
 
 const placeholder = process.env.NEXT_PUBLIC_IMG_PLACEHOLDER || '/no_image.png';
-const API_IMAGEN_URL = process.env.NEXT_PUBLIC_API_IMAGEN_URL || 'http://200.58.109.125:8007/api/imagen';
+// Usar proxy de Next.js para evitar problemas de CORS y mixed content
+const API_IMAGEN_URL = process.env.NEXT_PUBLIC_API_IMAGEN_URL || '/api/imagen';
 
 export default function ProductCard({ familia, onImageError }: ProductCardProps) {
   const [selectedColor, setSelectedColor] = useState(0);
@@ -84,7 +85,12 @@ export default function ProductCard({ familia, onImageError }: ProductCardProps)
         const data = await response.json();
         
         if (data.url_absoluta) {
-          setImagenesUrls(prev => new Map(prev).set(selectedColor, data.url_absoluta));
+          // Convertir URL absoluta a proxy local para evitar mixed content
+          const urlObj = new URL(data.url_absoluta);
+          const pathParts = urlObj.pathname.split('/');
+          // Construir: /proxy/imagen/2024/06/27/319351000001.webp
+          const proxyUrl = `/proxy/imagen/${pathParts.slice(-4).join('/')}`;
+          setImagenesUrls(prev => new Map(prev).set(selectedColor, proxyUrl));
         } else {
           throw new Error('URL no disponible');
         }
