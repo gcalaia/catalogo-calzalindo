@@ -17,10 +17,6 @@ interface Variante {
   imagen_url: string | null;
   codigo: number;
   talles: Talle[];
-  // Nuevos campos opcionales para el mapeo de imágenes
-  year?: string;
-  month?: string;
-  day?: string;
 }
 
 interface ProductCardProps {
@@ -36,76 +32,7 @@ interface ProductCardProps {
 }
 
 const placeholder = process.env.NEXT_PUBLIC_IMG_PLACEHOLDER || '/no_image.png';
-
-function getImageBaseUrl(): string {
-  if (typeof window === 'undefined') {
-    // Primero intentar con el nuevo servidor
-    if (process.env.NEXT_PUBLIC_IMAGE_SERVER_URL) {
-      return process.env.NEXT_PUBLIC_IMAGE_SERVER_URL;
-    }
-    // Fallback al anterior
-    return process.env.NEXT_PUBLIC_IMAGE_BASE_URL || 
-           'https://evirtual.calzalindo.com.ar:58000/clz_ventas/static/images';
-  }
-
-  // 1. Leer del query parameter (solo primera vez)
-  const urlParams = new URLSearchParams(window.location.search);
-  const localParam = urlParams.get('local');
-  
-  if (localParam === '1') {
-    localStorage.setItem('use_local_images', '1');
-  } else if (localParam === '0') {
-    localStorage.removeItem('use_local_images');
-  }
-
-  // 2. Leer preferencia guardada
-  const useLocal = localStorage.getItem('use_local_images') === '1';
-
-  if (useLocal) {
-    return process.env.NEXT_PUBLIC_IMG_BASE_INTERNAL || 
-           'http://192.168.2.109/clz_ventas/static/images';
-  }
-
-  const hostname = window.location.hostname;
-  
-  if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    return process.env.NEXT_PUBLIC_IMG_BASE_INTERNAL || 
-           'http://192.168.2.109/clz_ventas/static/images';
-  }
-
-  // Usar el nuevo servidor de imágenes si está configurado
-  if (process.env.NEXT_PUBLIC_IMAGE_SERVER_URL) {
-    return process.env.NEXT_PUBLIC_IMAGE_SERVER_URL;
-  }
-
-  return process.env.NEXT_PUBLIC_IMAGE_BASE_URL || 
-         'https://evirtual.calzalindo.com.ar:58000/clz_ventas/static/images';
-}
-
-function buildImageUrl(v: { imagen_url?: string | null } | null): string {
-  const placeholder = '/no_image.png';
-  if (!v || v.imagen_url == null) return placeholder; // null o undefined
-
-  const ipBase = 'http://200.58.109.125:8080/img/';
-  const httpsBase = ((process.env.NEXT_PUBLIC_IMAGE_SERVER_URL || '').replace(/\/+$/,'') + '/');
-
-  // si viene absoluta a la IP (http), reescribir a base https configurada
-  if (v.imagen_url.startsWith(ipBase) && httpsBase.startsWith('https://')) {
-    return v.imagen_url.replace(ipBase, httpsBase);
-  }
-
-  // absoluta https → usar tal cual
-  if (/^https:\/\//i.test(v.imagen_url)) return v.imagen_url;
-
-  // relativa → prepend base https
-  if (httpsBase.startsWith('https://')) {
-    return httpsBase + v.imagen_url.replace(/^\/+/, '');
-  }
-
-  return placeholder;
-}
-
-
+const API_IMAGEN_URL = process.env.NEXT_PUBLIC_API_IMAGEN_URL || 'http://200.58.109.125:8007/api/imagen';
 
 export default function ProductCard({ familia, onImageError }: ProductCardProps) {
   const [selectedColor, setSelectedColor] = useState(0);
@@ -113,9 +40,61 @@ export default function ProductCard({ familia, onImageError }: ProductCardProps)
   const [showImageModal, setShowImageModal] = useState(false);
   const [showAddedFeedback, setShowAddedFeedback] = useState(false);
   const [variantesConError, setVariantesConError] = useState<Set<number>>(new Set());
-  const [imageLoadAttempts, setImageLoadAttempts] = useState<Map<number, number>>(new Map());
+  const [imagenesUrls, setImagenesUrls] = useState<Map<number, string>>(new Map());
+  const [loadingImages, setLoadingImages] = useState<Set<number>>(new Set());
   
   const { addItem } = useConsulta();
+
+  // Cargar URLs de imágenes desde la API
+  useEffect(() => {
+    const fetchImageUrls = async () => {
+      const newUrls = new Map(imagenesUrls);
+      const newLoading = new Set<number>();
+      
+      for (let i = 0; i < familia.variantes.length; i++) {
+        const variante = familia.variantes[i];
+        
+        // Si ya tenemos la URL o ya está cargando, skip
+        if (imagenesUrls.has(i) || loadingImages.has(i)) continue;
+        
+        // Si no tiene código, marcar como error
+        if (!variante.codigo) {
+          setVariantesConError(prev => new Set(prev).add(i));
+          continue;
+        }
+        
+        newLoading.add(i);
+        setLoadingImages(prev => new Set(prev).add(i));
+        
+        try {
+          // Llamar a la nueva API
+          const response = await fetch(`${API_IMAGEN_URL}/${variante.codigo}`);
+          
+          if (!response.ok) throw new Error('Imagen no encontrada');
+          
+          const data = await response.json();
+          
+          if (data.url_absoluta) {
+            newUrls.set(i, data.url_absoluta);
+            setImagenesUrls(newUrls);
+          } else {
+            throw new Error('URL no disponible');
+          }
+        } catch (error) {
+          console.error(`Error cargando imagen para código ${variante.codigo}:`, error);
+          setVariantesConError(prev => new Set(prev).add(i));
+        } finally {
+          setLoadingImages(prev => {
+            const next = new Set(prev);
+            next.delete(i);
+            return next;
+          });
+        }
+      }
+    };
+    
+    fetchImageUrls();
+  }, [familia.variantes]);
 
   const variantesValidas = familia.variantes.filter((_, index) => !variantesConError.has(index));
 
@@ -137,7 +116,8 @@ export default function ProductCard({ familia, onImageError }: ProductCardProps)
   }, [variantesConError, selectedColor, familia.variantes]);
 
   const varianteActual = familia.variantes[selectedColor];
-  const imageSrc = buildImageUrl(varianteActual);
+  const imageSrc = imagenesUrls.get(selectedColor) || placeholder;
+  const isLoadingImage = loadingImages.has(selectedColor);
 
   const { lista, contado, debito, offContado, offDebito } = calcularPrecios(familia.precio_lista);
 
@@ -158,23 +138,8 @@ export default function ProductCard({ familia, onImageError }: ProductCardProps)
   const esUltimasUnidades = stockTotal > 0 && stockTotal <= 3;
 
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>, variantIndex?: number) => {
-    const indexToMark = variantIndex ?? selectedColor;
-    const attempts = imageLoadAttempts.get(indexToMark) || 0;
-    
-    // Si es el primer intento y estamos usando el nuevo servidor, intentar con el servidor viejo
-    if (attempts === 0 && process.env.NEXT_PUBLIC_IMAGE_BASE_URL) {
-      setImageLoadAttempts(new Map(imageLoadAttempts).set(indexToMark, attempts + 1));
-      
-      // Intentar con el servidor anterior
-      const oldServerUrl = process.env.NEXT_PUBLIC_IMAGE_BASE_URL || 'https://evirtual.calzalindo.com.ar:58000/clz_ventas/static/images';
-      if (varianteActual?.imagen_url) {
-        e.currentTarget.src = `${oldServerUrl}/${varianteActual.imagen_url.replace(/^\/+/, '')}`;
-        return;
-      }
-    }
-    
-    // Si ya intentamos o no hay alternativa, usar placeholder
     e.currentTarget.src = placeholder;
+    const indexToMark = variantIndex ?? selectedColor;
     setVariantesConError(prev => new Set(prev).add(indexToMark));
   };
 
@@ -224,13 +189,19 @@ Precio: $${sel.value.toLocaleString('es-AR')}`;
           </div>
         )}
 
-        <img
-          src={imageSrc}
-          alt={familia.nombre}
-          className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-          onError={(e) => handleImageError(e, selectedColor)}
-          loading="lazy"
-        />
+        {isLoadingImage ? (
+          <div className="w-full h-full flex items-center justify-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-400" />
+          </div>
+        ) : (
+          <img
+            src={imageSrc}
+            alt={familia.nombre}
+            className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+            onError={(e) => handleImageError(e, selectedColor)}
+            loading="lazy"
+          />
+        )}
       </div>
 
       <div className="p-4">

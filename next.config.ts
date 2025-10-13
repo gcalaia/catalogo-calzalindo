@@ -10,6 +10,13 @@ const nextConfig: NextConfig = {
         port: '8080',
         pathname: '/img/**'
       },
+      // NUEVO: API de imágenes
+      {
+        protocol: 'http',
+        hostname: '200.58.109.125',
+        port: '8007',
+        pathname: '/imagenes/**'
+      },
       // Servidor anterior (fallback)
       {
         protocol: 'https',
