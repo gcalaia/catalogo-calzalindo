@@ -99,7 +99,10 @@ export default function ProductCard({ familia, onImageError }: ProductCardProps)
           throw new Error('URL no disponible');
         }
       } catch (error) {
-        console.error(`Error cargando imagen para código ${variante.codigo}:`, error);
+        // Solo logear si no es un 404 esperado
+        if (error instanceof Error && !error.message.includes('404')) {
+          console.error(`Error cargando imagen para código ${variante.codigo}:`, error);
+        }
         setVariantesConError(prev => new Set(prev).add(selectedColor));
       } finally {
         setIsLoadingImage(false);
