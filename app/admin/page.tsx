@@ -47,7 +47,6 @@ export default function ProductosSinFoto() {
       
       const data = await res.json();
       if (data.url_absoluta) {
-        // Convertir a proxy local
         const match = data.url_absoluta.match(/\/imagenes\/(.+)$/);
         if (match) {
           return `/proxy/imagen/${match[1]}`;
@@ -94,7 +93,6 @@ export default function ProductosSinFoto() {
       
       if (data.success) {
         alert(`✅ ${data.actualizados} producto(s) actualizados`);
-        // Remover de la lista
         setProductos(prev => prev.filter(p => p.familia_id !== familiaId));
         setImagenPreview(prev => {
           const next = new Map(prev);
@@ -130,8 +128,7 @@ export default function ProductosSinFoto() {
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
-         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-3xl font-bold text-gray-900 mb-2">
@@ -150,17 +147,16 @@ export default function ProductosSinFoto() {
               href="/"
               className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50"
             >
-              &larr; Volver al catálogo
+              Volver al catalogo
             </a>
           </div>
         </div>
 
-        {/* Lista de productos */}
         {productos.length === 0 ? (
           <div className="bg-white rounded-lg shadow-md p-12 text-center">
             <div className="text-6xl mb-4">🎉</div>
             <h2 className="text-2xl font-bold text-gray-900 mb-2">
-              ¡Todos los productos tienen imagen!
+              Todos los productos tienen imagen
             </h2>
             <p className="text-gray-600">
               No hay productos sin foto en este momento
@@ -179,7 +175,6 @@ export default function ProductosSinFoto() {
                   className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow"
                 >
                   <div className="flex gap-6">
-                    {/* Columna de imagen */}
                     <div className="flex-shrink-0">
                       <div className="w-48 h-48 bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center">
                         {tienePreview ? (
@@ -212,7 +207,6 @@ export default function ProductosSinFoto() {
                       </div>
                     </div>
 
-                    {/* Columna de información */}
                     <div className="flex-1">
                       <div className="mb-4">
                         <h3 className="text-xl font-bold text-gray-900 mb-1">
@@ -228,7 +222,7 @@ export default function ProductosSinFoto() {
                             {producto.rubro}
                           </span>
                           <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded font-mono">
-                            Código: {codigo}
+                            Codigo: {codigo}
                           </span>
                         </div>
                       </div>
@@ -260,14 +254,13 @@ export default function ProductosSinFoto() {
                             ))}
                             {producto.talles.length > 8 && (
                               <span className="text-xs text-gray-400 px-2 py-1">
-                                +{producto.talles.length - 8} más
+                                +{producto.talles.length - 8} mas
                               </span>
                             )}
                           </div>
                         </div>
                       </div>
 
-                      {/* Botones */}
                       <div className="flex gap-2">
                         <button
                           onClick={() => verificarImagen(producto.familia_id, codigo)}
