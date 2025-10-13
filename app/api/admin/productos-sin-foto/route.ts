@@ -3,55 +3,6 @@ import { prisma } from '@/lib/prisma';
 
 export async function GET() {
   try {
-    // 1. Primero, veamos cuántos productos hay EN TOTAL con stock
-    const totalConStock = await prisma.producto.count({
-      where: {
-        stock_disponible: { gt: 0 },
-        rubro: { in: ['DAMAS', 'HOMBRES', 'NIÑOS', 'NIÑAS', 'UNISEX'] },
-      }
-    });
-
-    // 2. Cuántos tienen imagen_url null o vacía
-    const sinImagenUrl = await prisma.producto.count({
-      where: {
-        stock_disponible: { gt: 0 },
-        rubro: { in: ['DAMAS', 'HOMBRES', 'NIÑOS', 'NIÑAS', 'UNISEX'] },
-        OR: [
-          { imagen_url: null },
-          { imagen_url: '' },
-        ]
-      }
-    });
-
-    // 3. Cuántos tienen proxy
-    const conProxy = await prisma.producto.count({
-      where: {
-        stock_disponible: { gt: 0 },
-        rubro: { in: ['DAMAS', 'HOMBRES', 'NIÑOS', 'NIÑAS', 'UNISEX'] },
-        imagen_url: { startsWith: '/proxy/imagen/' }
-      }
-    });
-
-    // 4. Traer algunos ejemplos de URLs para ver qué formato tienen
-    const ejemplos = await prisma.producto.findMany({
-      where: {
-        stock_disponible: { gt: 0 },
-        rubro: { in: ['DAMAS', 'HOMBRES', 'NIÑOS', 'NIÑAS', 'UNISEX'] },
-      },
-      select: {
-        codigo: true,
-        imagen_url: true,
-      },
-      take: 10
-    });
-
-    console.log('=== DEBUG IMÁGENES ===');
-    console.log('Total con stock:', totalConStock);
-    console.log('Sin imagen_url:', sinImagenUrl);
-    console.log('Con proxy:', conProxy);
-    console.log('Ejemplos de URLs:', ejemplos);
-
-    // 5. Ahora sí, traer los productos sin imagen
     const productos = await prisma.producto.findMany({
       where: {
         stock_disponible: { gt: 0 },
@@ -59,11 +10,19 @@ export async function GET() {
         OR: [
           { imagen_url: null },
           { imagen_url: '' },
-        ]
+          { imagen_url: { contains: 'evirtual.calzalindo.com.ar:58000' } },
+          { imagen_url: { contains: '0000000000000' } },
+          { imagen_url: { endsWith: '000000000001.jpg' } },
+          { imagen_url: { contains: 'no_image' } },
+          { imagen_url: { contains: 'placeholder' } },
+        ],
+        NOT: {
+          imagen_url: { startsWith: '/proxy/imagen/' }
+        }
       },
       select: {
         id: true,
-        codigo: true,
+        codigo: true, // ← IMPORTANTE: necesitamos el código
         nombre: true,
         imagen_url: true,
         marca_descripcion: true,
@@ -74,10 +33,10 @@ export async function GET() {
         familia_id: true,
       },
       take: 500,
-      orderBy: { id: 'desc' }
+      orderBy: { stock_disponible: 'desc' }
     });
 
-    console.log('Productos sin imagen encontrados:', productos.length);
+    console.log(`✅ Encontrados ${productos.length} productos con imágenes inválidas`);
 
     // Agrupar por familia
     const familias = new Map<string, any>();
@@ -88,6 +47,7 @@ export async function GET() {
       if (!familias.has(familiaKey)) {
         familias.set(familiaKey, {
           familia_id: familiaKey,
+          codigo: p.codigo, // ← NUEVO: guardar el código real
           nombre: p.nombre.split(/\s+/).slice(0, 5).join(' '),
           marca: p.marca_descripcion,
           rubro: p.rubro,
@@ -109,19 +69,13 @@ export async function GET() {
     }));
 
     return NextResponse.json({
-      debug: {
-        totalConStock,
-        sinImagenUrl,
-        conProxy,
-        ejemplos: ejemplos.map(e => ({ codigo: e.codigo, url: e.imagen_url }))
-      },
       total: resultado.length,
       totalProductos: productos.length,
       productos: resultado,
     });
 
   } catch (error) {
-    console.error('Error:', error);
+    console.error('❌ Error:', error);
     return NextResponse.json(
       { error: 'Error al buscar productos sin imagen' },
       { status: 500 }

@@ -1,490 +1,322 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface Producto {
-  id: number;
-  codigo: number;
-  nombre: string;
-  marca_descripcion: string | null;
-  rubro: string | null;
-  subrubro_nombre: string | null;
-  stock_disponible: number;
-  precio_lista: number;
-  familia_id: string | null;
-  color?: string | null;
-  talla?: string | null;
-}
-
-interface ProductoSinFoto {
   familia_id: string;
+  codigo: number;
   nombre: string;
   marca: string | null;
   rubro: string | null;
   imagen_url: string | null;
-
-  // puede venir como array de strings (sin-foto)
-  // o como array de objetos con talles (stock-bajo)
-  colores: string[] | { color: string; talles: Array<{ talla: string; stock: number }> }[];
-
-  // en sin-foto puede venir por separado
-  talles?: Array<{ talla: string; stock: number }>;
-
-  // sólo stock-bajo
-  stockTotal?: number;
-  stockMinimo?: number;
+  colores: string[];
+  talles: Array<{ talla: string; stock: number }>;
 }
 
-interface Stats {
-  totalProductos: number;
-  productosConStock: number;
-  productosSinFoto: number;
-  productosStockBajo: number;
-  productosSinPrecio: number;
-  productosSinMarca: number;
-  totalFamilias: number;
-}
+const API_IMAGEN_URL = process.env.NEXT_PUBLIC_API_IMAGEN_URL || '/api/imagen';
 
-type Section = 'sin-foto' | 'stock-bajo' | 'sin-precio' | 'sin-marca';
-
-export default function AdminPage() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  const [stats, setStats] = useState<Stats | null>(null);
+export default function ProductosSinFoto() {
   const [productos, setProductos] = useState<Producto[]>([]);
-  const [productosSinFoto, setProductosSinFoto] = useState<ProductoSinFoto[]>([]);
-  const [loadingData, setLoadingData] = useState(false);
-  const [activeSection, setActiveSection] = useState<Section>('sin-foto');
-  const [searchTerm, setSearchTerm] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [totalProductos, setTotalProductos] = useState(0);
+  const [procesando, setProcesando] = useState<Set<string>>(new Set());
+  const [imagenPreview, setImagenPreview] = useState<Map<string, string>>(new Map());
 
   useEffect(() => {
-    const auth = localStorage.getItem('admin_auth');
-    if (auth === 'true') {
-      setIsAuthenticated(true);
-      fetchStats();
-      fetchProductos('sin-foto');
-    }
+    cargarProductos();
   }, []);
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-
+  const cargarProductos = async () => {
     try {
-      const res = await fetch('/api/admin/auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password })
-      });
-
+      setLoading(true);
+      const res = await fetch('/api/admin/productos-sin-foto');
       const data = await res.json();
-
-      if (data.success) {
-        localStorage.setItem('admin_auth', 'true');
-        setIsAuthenticated(true);
-        fetchStats();
-        fetchProductos('sin-foto');
-      } else {
-        setError('Contraseña incorrecta');
-      }
-    } catch {
-      setError('Error al autenticar');
+      setProductos(data.productos || []);
+      setTotalProductos(data.totalProductos || 0);
+    } catch (error) {
+      console.error('Error cargando productos:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('admin_auth');
-    setIsAuthenticated(false);
-    setPassword('');
-  };
-
-  const fetchStats = async () => {
+  const buscarImagen = async (codigo: string) => {
     try {
-      const res = await fetch('/api/admin/stats');
+      const res = await fetch(`${API_IMAGEN_URL}/${codigo}`);
+      if (!res.ok) throw new Error('Imagen no encontrada');
+      
       const data = await res.json();
-      setStats(data);
-    } catch (err) {
-      console.error('Error:', err);
+      if (data.url_absoluta) {
+        // Convertir a proxy local
+        const match = data.url_absoluta.match(/\/imagenes\/(.+)$/);
+        if (match) {
+          return `/proxy/imagen/${match[1]}`;
+        }
+      }
+      return null;
+    } catch (error) {
+      return null;
     }
   };
 
-  const fetchProductos = async (section: Section) => {
-    setLoadingData(true);
-    setActiveSection(section);
-    setSearchTerm('');
-
-    try {
-    const endpoints: Record<Section, string> = {
-      'sin-foto': '/api/admin/productos-sin-foto',
-      'stock-bajo': '/api/admin/stock-bajo-agrupado', // ⬅️ CAMBIAR ESTO
-      'sin-precio': '/api/admin/sin-precio',
-      'sin-marca': '/api/admin/sin-marca'
-    };
-
-
-      const res = await fetch(endpoints[section]);
-      const data = await res.json();
-
-      if (section === 'sin-foto' || section === 'stock-bajo') {
-      setProductosSinFoto(data.productos || []);
-      setProductos([]);
+  const verificarImagen = async (familiaId: string, codigo: string) => {
+    setProcesando(prev => new Set(prev).add(familiaId));
+    
+    const urlImagen = await buscarImagen(codigo);
+    
+    if (urlImagen) {
+      setImagenPreview(prev => new Map(prev).set(familiaId, urlImagen));
     } else {
-      setProductos(data.productos || []);
-      setProductosSinFoto([]);
+      alert('No se encontró imagen para este código');
     }
-  } catch (err) {
-    console.error('Error:', err);
-  } finally {
-    setLoadingData(false);
-  }
-};
+    
+    setProcesando(prev => {
+      const next = new Set(prev);
+      next.delete(familiaId);
+      return next;
+    });
+  };
 
-  const exportarCSV = () => {
-  let csv = '';
+  const asignarImagen = async (familiaId: string, codigo: string) => {
+    const urlImagen = imagenPreview.get(familiaId);
+    if (!urlImagen) return;
 
-  if (activeSection === 'sin-foto') {
-    csv = 'Familia,Nombre,Marca,Colores,Talles\n' + productosSinFotoFiltrados
-      .map(p =>
-        `${p.familia_id},"${p.nombre.replace(/"/g,'""')}","${(p.marca || '').replace(/"/g,'""')}",` +
-        `"${getColoresTexto(p)}","${getTallesTexto(p,false)}"`
-      ).join('\n');
-  } else if (activeSection === 'stock-bajo') {
-    csv = 'Familia,Nombre,Marca,Colores,Talles,StockTotal,StockMinimo\n' + productosSinFotoFiltrados
-      .map(p =>
-        `${p.familia_id},"${p.nombre.replace(/"/g,'""')}","${(p.marca || '').replace(/"/g,'""')}",` +
-        `"${getColoresTexto(p)}","${getTallesTexto(p,true)}",${p.stockTotal ?? ''},${p.stockMinimo ?? ''}`
-      ).join('\n');
-  } else {
-    csv = 'Codigo,Nombre,Marca,Stock,Precio\n' + productosFiltrados
-      .map(p =>
-        `${p.codigo},"${p.nombre.replace(/"/g,'""')}","${(p.marca_descripcion || '').replace(/"/g,'""')}",` +
-        `${p.stock_disponible},${p.precio_lista}`
-      ).join('\n');
-  }
+    setProcesando(prev => new Set(prev).add(familiaId));
 
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${activeSection}-${new Date().toISOString().split('T')[0]}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
-};
+    try {
+      const res = await fetch('/api/admin/actualizar-imagen', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ codigo, imagen_url: urlImagen })
+      });
 
-  const productosFiltrados = productos.filter((p) => {
-    if (!searchTerm) return true;
-    const term = searchTerm.toLowerCase();
+      const data = await res.json();
+      
+      if (data.success) {
+        alert(`✅ ${data.actualizados} producto(s) actualizados`);
+        // Remover de la lista
+        setProductos(prev => prev.filter(p => p.familia_id !== familiaId));
+        setImagenPreview(prev => {
+          const next = new Map(prev);
+          next.delete(familiaId);
+          return next;
+        });
+      } else {
+        alert('Error al actualizar');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Error al actualizar imagen');
+    } finally {
+      setProcesando(prev => {
+        const next = new Set(prev);
+        next.delete(familiaId);
+        return next;
+      });
+    }
+  };
+
+  if (loading) {
     return (
-      p.codigo.toString().includes(term) ||
-      p.nombre.toLowerCase().includes(term) ||
-      (p.marca_descripcion && p.marca_descripcion.toLowerCase().includes(term)) ||
-      (p.rubro && p.rubro.toLowerCase().includes(term))
-    );
-  });
-
-  const productosSinFotoFiltrados = productosSinFoto.filter((p) => {
-    if (!searchTerm) return true;
-    const term = searchTerm.toLowerCase();
-    return (
-      p.familia_id.toLowerCase().includes(term) ||
-      p.nombre.toLowerCase().includes(term) ||
-      (p.marca && p.marca.toLowerCase().includes(term)) ||
-      (p.rubro && p.rubro.toLowerCase().includes(term))
-    );
-  });
-
-  const sections = [
-    { key: 'sin-foto' as Section, label: 'Sin foto', count: stats?.productosSinFoto, icon: '📷', color: 'red' },
-    { key: 'stock-bajo' as Section, label: 'Stock bajo', count: stats?.productosStockBajo, icon: '⚠️', color: 'orange' },
-    { key: 'sin-precio' as Section, label: 'Sin precio', count: stats?.productosSinPrecio, icon: '💲', color: 'yellow' },
-    { key: 'sin-marca' as Section, label: 'Sin marca', count: stats?.productosSinMarca, icon: '🏷️', color: 'blue' },
-  ];
-
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
-          <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-              </svg>
-            </div>
-            <h1 className="text-2xl font-bold text-gray-900">Panel de Administración</h1>
-            <p className="text-gray-500 mt-2">Ingresá la contraseña para continuar</p>
-          </div>
-
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Contraseña</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Ingresá tu contraseña"
-                disabled={loading}
-                autoFocus
-              />
-            </div>
-
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-                {error}
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={loading || !password}
-              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-lg transition-colors"
-            >
-              {loading ? 'Verificando...' : 'Ingresar'}
-            </button>
-          </form>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4" />
+          <p className="text-gray-600">Cargando productos...</p>
         </div>
       </div>
     );
   }
 
-function getColoresTexto(p: ProductoSinFoto) {
-  if (Array.isArray(p.colores) && p.colores.length > 0) {
-    // stock-bajo: [{ color, talles: [...] }]
-    if (typeof (p.colores[0] as any).color === 'string') {
-      return (p.colores as { color: string }[]).map(c => c.color).join(', ');
-    }
-    // sin-foto: string[]
-    return (p.colores as string[]).join(', ');
-  }
-  return '-';
-}
-
-function getTallesTexto(p: ProductoSinFoto, esStockBajo: boolean) {
-  if (esStockBajo) {
-    // stock-bajo: talles dentro de colores
-    if (
-      Array.isArray(p.colores) &&
-      p.colores.length > 0 &&
-      typeof (p.colores[0] as any).talles !== 'undefined'
-    ) {
-      const planos = (p.colores as { talles: Array<{ talla: string; stock: number }> }[])
-        .flatMap(c => c.talles.map(t => `${t.talla}(${t.stock})`));
-      return planos.length ? planos.join(', ') : '-';
-    }
-    return '-';
-  }
-
-  // sin-foto: talles a nivel familia (puede no existir)
-  if (Array.isArray(p.talles) && p.talles.length > 0) {
-    return p.talles.map(t => `${t.talla}(${t.stock})`).join(', ');
-  }
-  return '-';
-}
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <a href="/" className="text-blue-600 hover:text-blue-800 transition-colors">← Volver al catálogo</a>
-            <span className="text-gray-300">|</span>
-            <h1 className="text-xl font-bold text-gray-900">Panel de Administración</h1>
-          </div>
-          <button onClick={handleLogout} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-            Cerrar sesión
-          </button>
-        </div>
-      </div>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {stats && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">Total Productos</p>
-                  <p className="text-3xl font-bold text-gray-900 mt-1">{stats.totalProductos.toLocaleString()}</p>
-                </div>
-                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                  <span className="text-2xl">📦</span>
-                </div>
+    <div className="min-h-screen bg-gray-50 py-8 px-4">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                Productos sin Foto
+              </h1>
+              <div className="flex gap-4 text-sm text-gray-600">
+                <span className="bg-orange-100 text-orange-800 px-3 py-1 rounded-full font-medium">
+                  {productos.length} familias sin imagen
+                </span>
+                <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full font-medium">
+                  {totalProductos} productos individuales
+                </span>
               </div>
             </div>
-
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">Con Stock</p>
-                  <p className="text-3xl font-bold text-green-600 mt-1">{stats.productosConStock.toLocaleString()}</p>
-                </div>
-                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                  <span className="text-2xl">✅</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">Familias</p>
-                  <p className="text-3xl font-bold text-purple-600 mt-1">{stats.totalFamilias.toLocaleString()}</p>
-                </div>
-                <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
-                  <span className="text-2xl">👟</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">Requieren Atención</p>
-                  <p className="text-3xl font-bold text-orange-600 mt-1">
-                    {((stats.productosSinFoto || 0) + (stats.productosStockBajo || 0) + (stats.productosSinPrecio || 0) + (stats.productosSinMarca || 0)).toLocaleString()}
-                  </p>
-                </div>
-                <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
-                  <span className="text-2xl">⚡</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="bg-white rounded-lg shadow mb-6">
-          <div className="flex border-b overflow-x-auto">
-            {sections.map((section) => (
-              <button
-                key={section.key}
-                onClick={() => fetchProductos(section.key)}
-                className={`px-6 py-4 font-medium transition-colors whitespace-nowrap flex items-center gap-2 ${
-                  activeSection === section.key ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
-              >
-                <span>{section.icon}</span>
-                <span>{section.label}</span>
-                {section.count !== undefined && (
-                  <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-bold ${
-                    section.color === 'red' ? 'bg-red-100 text-red-700' :
-                    section.color === 'orange' ? 'bg-orange-100 text-orange-700' :
-                    section.color === 'yellow' ? 'bg-yellow-100 text-yellow-700' : 'bg-blue-100 text-blue-700'
-                  }`}>
-                    {section.count}
-                  </span>
-                )}
-              </button>
-            ))}
+            
+              href="/"
+              className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50"
+            >
+              ← Volver al catálogo
+            </a>
           </div>
         </div>
 
-        {loadingData ? (
-          <div className="text-center py-12">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-            <p className="text-gray-600">Cargando datos...</p>
+        {/* Lista de productos */}
+        {productos.length === 0 ? (
+          <div className="bg-white rounded-lg shadow-md p-12 text-center">
+            <div className="text-6xl mb-4">🎉</div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+              ¡Todos los productos tienen imagen!
+            </h2>
+            <p className="text-gray-600">
+              No hay productos sin foto en este momento
+            </p>
           </div>
         ) : (
-          <>
-            <div className="bg-white rounded-lg shadow p-4 mb-6">
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div className="w-full sm:w-auto flex-1">
-                  <input
-                    type="text"
-                    placeholder="Buscar..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  />
+          <div className="grid gap-4">
+            {productos.map((producto) => {
+              const codigo = producto.codigo.toString();
+              const tieneProcesando = procesando.has(producto.familia_id);
+              const tienePreview = imagenPreview.has(producto.familia_id);
+
+              return (
+                <div
+                  key={producto.familia_id}
+                  className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow"
+                >
+                  <div className="flex gap-6">
+                    {/* Columna de imagen */}
+                    <div className="flex-shrink-0">
+                      <div className="w-48 h-48 bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center">
+                        {tienePreview ? (
+                          <img
+                            src={imagenPreview.get(producto.familia_id)}
+                            alt={producto.nombre}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.currentTarget.src = '/no_image.png';
+                            }}
+                          />
+                        ) : (
+                          <div className="text-center p-4">
+                            <svg
+                              className="w-16 h-16 text-gray-300 mx-auto mb-2"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                              />
+                            </svg>
+                            <p className="text-xs text-gray-400">Sin imagen</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Columna de información */}
+                    <div className="flex-1">
+                      <div className="mb-4">
+                        <h3 className="text-xl font-bold text-gray-900 mb-1">
+                          {producto.nombre}
+                        </h3>
+                        <div className="flex flex-wrap gap-2 text-sm text-gray-600">
+                          {producto.marca && (
+                            <span className="bg-gray-100 px-2 py-1 rounded">
+                              {producto.marca}
+                            </span>
+                          )}
+                          <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded">
+                            {producto.rubro}
+                          </span>
+                          <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded font-mono">
+                            Código: {codigo}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                          <p className="text-xs text-gray-500 mb-1">Colores:</p>
+                          <div className="flex flex-wrap gap-1">
+                            {producto.colores.map((color, i) => (
+                              <span
+                                key={i}
+                                className="text-xs bg-gray-100 px-2 py-1 rounded"
+                              >
+                                {color}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500 mb-1">Talles:</p>
+                          <div className="flex flex-wrap gap-1">
+                            {producto.talles.slice(0, 8).map((talle, i) => (
+                              <span
+                                key={i}
+                                className="text-xs bg-gray-100 px-2 py-1 rounded"
+                              >
+                                {talle.talla} ({talle.stock})
+                              </span>
+                            ))}
+                            {producto.talles.length > 8 && (
+                              <span className="text-xs text-gray-400 px-2 py-1">
+                                +{producto.talles.length - 8} más
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Botones */}
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => verificarImagen(producto.familia_id, codigo)}
+                          disabled={tieneProcesando}
+                          className="flex-1 flex items-center justify-center gap-2 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                        >
+                          {tieneProcesando ? (
+                            <>
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                              Buscando...
+                            </>
+                          ) : (
+                            <>
+                              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                              </svg>
+                              Buscar imagen
+                            </>
+                          )}
+                        </button>
+
+                        {tienePreview && (
+                          <button
+                            onClick={() => asignarImagen(producto.familia_id, codigo)}
+                            disabled={tieneProcesando}
+                            className="flex-1 flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 disabled:bg-gray-300 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                          >
+                            {tieneProcesando ? (
+                              <>
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                                Guardando...
+                              </>
+                            ) : (
+                              <>
+                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                                Asignar imagen
+                              </>
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-600">
-                    {activeSection === 'sin-foto' ? `${productosSinFotoFiltrados.length} familias` : `${productosFiltrados.length} productos`}
-                  </span>
-                  <button onClick={exportarCSV} disabled={activeSection === 'sin-foto' ? productosSinFotoFiltrados.length === 0 : productosFiltrados.length === 0} className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-300 text-white rounded-lg">
-                    CSV
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-lg shadow overflow-hidden">
-              <div className="overflow-x-auto">
-                {(activeSection === 'sin-foto' || activeSection === 'stock-bajo') ? (
-  <table className="w-full">
-    <thead className="bg-gray-50">
-      <tr>
-        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Familia</th>
-        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Producto</th>
-        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Marca</th>
-        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Colores</th>
-        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Talles</th>
-        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stock Total</th>
-        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stock Mínimo</th>
-      </tr>
-    </thead>
-                    <tbody className="divide-y">
-  {productosSinFotoFiltrados.map((p) => (
-    <tr key={p.familia_id}>
-      <td className="px-6 py-4 text-sm">{p.familia_id}</td>
-      <td className="px-6 py-4 text-sm">{p.nombre}</td>
-      <td className="px-6 py-4 text-sm">{p.marca || '-'}</td>
-
-      {/* Colores */}
-      <td className="px-6 py-4 text-sm">
-        {getColoresTexto(p)}
-      </td>
-
-      {/* Talles (seguro para ambos formatos) */}
-      <td className="px-6 py-4 text-sm">
-        {getTallesTexto(p, activeSection === 'stock-bajo')}
-      </td>
-
-      {/* Extras sólo en stock-bajo */}
-      <td className="px-6 py-4 text-sm">
-        {activeSection === 'stock-bajo' && typeof p.stockTotal === 'number' ? p.stockTotal : '-'}
-      </td>
-      <td className="px-6 py-4 text-sm">
-        {activeSection === 'stock-bajo' && typeof p.stockMinimo === 'number' ? (
-          <span className="px-2 py-1 rounded text-xs bg-orange-100 text-orange-700 font-bold">{p.stockMinimo}</span>
-        ) : '-'}
-      </td>
-    </tr>
-  ))}
-</tbody>
-
-
-                  </table>
-                ) : (
-                  <table className="w-full">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Código</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nombre</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Marca</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stock</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Precio</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y">
-                      {productosFiltrados.map((p) => (
-                        <tr key={p.id}>
-                          <td className="px-6 py-4 text-sm">{p.codigo}</td>
-                          <td className="px-6 py-4 text-sm">{p.nombre}</td>
-                          <td className="px-6 py-4 text-sm">{p.marca_descripcion || '-'}</td>
-                          <td className="px-6 py-4 text-sm">{p.stock_disponible}</td>
-                          <td className="px-6 py-4 text-sm">${p.precio_lista.toLocaleString()}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </div>
-            </div>
-          </>
+              );
+            })}
+          </div>
         )}
       </div>
     </div>
