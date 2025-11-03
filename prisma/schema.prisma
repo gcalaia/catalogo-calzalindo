@@ -74,6 +74,9 @@ model productos {
   fecha_creacion      DateTime?              @default(now()) @db.Timestamp(6)
   fecha_actualizacion DateTime?              @default(now()) @db.Timestamp(6)
   embedding           Unsupported("vector")?
+  codigo              Int?
+  producto_imagenes   producto_imagenes[]
+  producto_variantes  producto_variantes[]
   prod_lineas         prod_lineas?           @relation(fields: [linea_id], references: [id], onDelete: Restrict, map: "fk_linea")
   prod_marcas         prod_marcas?           @relation(fields: [marca_id], references: [id], onDelete: Restrict, map: "fk_marca")
   prod_rubros         prod_rubros?           @relation(fields: [rubro_id], references: [id], onDelete: Restrict, map: "fk_rubro")
@@ -86,23 +89,97 @@ model productos {
   @@index([slug], map: "idx_productos_slug")
 }
 
+model prod_colores {
+  id                  Int       @id @default(autoincrement())
+  codigo_mg           Decimal   @db.Decimal(2, 0)
+  denominacion        String?   @db.VarChar(25)
+  nro_rgb             String?   @db.VarChar(9)
+  cod_hex             String?   @db.VarChar(9)
+  codigo_interno      Decimal?  @db.Decimal(3, 0)
+  fecha_creacion      DateTime? @default(now()) @db.Timestamp(6)
+  fecha_actualizacion DateTime? @default(now()) @db.Timestamp(6)
+}
+
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
-/// We could not retrieve columns for the underlying table. Either it has none or you are missing rights to see them. Please check your privileges.
-// model producto_imagenes {
-// }
+model producto_imagenes {
+  id                 Int                 @id @default(autoincrement())
+  producto_id        Int?
+  variante_id        Int?
+  url                String              @db.VarChar(500)
+  alt_text           String?             @db.VarChar(255)
+  tipo               String?             @default("producto") @db.VarChar(50)
+  orden              Int?                @default(0)
+  es_principal       Boolean?            @default(false)
+  fecha_creacion     DateTime?           @default(now()) @db.Timestamp(6)
+  productos          productos?          @relation(fields: [producto_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  producto_variantes producto_variantes? @relation(fields: [variante_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
-/// We could not retrieve columns for the underlying table. Either it has none or you are missing rights to see them. Please check your privileges.
-// model producto_precios {
-// }
+  @@index([es_principal], map: "idx_imagenes_principal")
+  @@index([producto_id], map: "idx_imagenes_producto")
+  @@index([variante_id], map: "idx_imagenes_variante")
+}
 
-/// We could not retrieve columns for the underlying table. Either it has none or you are missing rights to see them. Please check your privileges.
-// model producto_sinonimos {
-// }
+model producto_precios {
+  id                 Int                @id @default(autoincrement())
+  variante_id        Int
+  precio             Decimal            @db.Decimal(10, 2)
+  precio_oferta      Decimal?           @db.Decimal(10, 2)
+  fecha_desde        DateTime           @default(now()) @db.Timestamp(6)
+  fecha_hasta        DateTime?          @db.Timestamp(6)
+  activo             Boolean?           @default(true)
+  motivo             String?            @db.VarChar(100)
+  producto_variantes producto_variantes @relation(fields: [variante_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
-/// We could not retrieve columns for the underlying table. Either it has none or you are missing rights to see them. Please check your privileges.
-// model producto_stock {
-// }
+  @@index([activo], map: "idx_precios_activo")
+  @@index([fecha_desde, fecha_hasta], map: "idx_precios_fecha")
+  @@index([variante_id], map: "idx_precios_variante")
+}
 
-/// We could not retrieve columns for the underlying table. Either it has none or you are missing rights to see them. Please check your privileges.
-// model producto_variantes {
-// }
+model producto_sinonimos {
+  id               Int     @id @default(autoincrement())
+  termino_original String  @db.VarChar(100)
+  sinonimo         String  @db.VarChar(100)
+  categoria        String? @db.VarChar(50)
+
+  @@unique([termino_original, sinonimo])
+}
+
+model producto_stock {
+  id                   Int                @id @default(autoincrement())
+  variante_id          Int
+  sucursal             String?            @default("principal") @db.VarChar(100)
+  cantidad             Int?               @default(0)
+  stock_minimo         Int?               @default(5)
+  stock_maximo         Int?               @default(100)
+  ultima_actualizacion DateTime?          @default(now()) @db.Timestamp(6)
+  producto_variantes   producto_variantes @relation(fields: [variante_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([variante_id, sucursal], map: "idx_stock_unico")
+  @@index([sucursal], map: "idx_stock_sucursal")
+  @@index([variante_id], map: "idx_stock_variante")
+}
+
+model producto_variantes {
+  id                  Int                 @id @default(autoincrement())
+  producto_id         Int
+  sku                 String?             @db.VarChar(50)
+  color_id            Int?
+  talle               String?             @db.VarChar(20)
+  codigo_barras       String?             @db.VarChar(50)
+  precio              Decimal?            @db.Decimal(10, 2)
+  precio_oferta       Decimal?            @db.Decimal(10, 2)
+  stock_cantidad      Int?                @default(0)
+  activo              Boolean?            @default(true)
+  orden               Int?                @default(0)
+  fecha_creacion      DateTime?           @default(now()) @db.Timestamp(6)
+  fecha_actualizacion DateTime?           @default(now()) @db.Timestamp(6)
+  codigo_sinonimo     String?             @db.VarChar
+  codigo_mg           Int                 @unique(map: "unique_producto_variantes_codigo_mg")
+  producto_imagenes   producto_imagenes[]
+  producto_precios    producto_precios[]
+  producto_stock      producto_stock[]
+  productos           productos           @relation(fields: [producto_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([activo], map: "idx_variantes_activo")
+  @@index([producto_id], map: "idx_variantes_producto")
+}
