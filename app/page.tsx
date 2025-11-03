@@ -3,6 +3,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import ProductCard from '@/components/ProductCard';
+import { getTaxonomyIcon, getLineaIcon } from '@/lib/taxonomyIcons';
 
 interface Producto {
   id: number;
@@ -15,6 +16,9 @@ interface Producto {
   marca_descripcion: string | null;
   rubro: string | null;
   subrubro_nombre: string | null;
+  taxonomia: string | null;
+  linea: string | null;
+  destacado: boolean;
   precio_lista: number;
   stock_disponible: number;
   imagen_url: string | null;
@@ -26,6 +30,9 @@ interface ProductoFamilia {
   marca_descripcion: string | null;
   rubro: string | null;
   subrubro_nombre: string | null;
+  taxonomia: string | null;
+  linea: string | null;
+  destacado: boolean;
   precio_lista: number;
   variantes: {
     color: string;
@@ -44,11 +51,10 @@ const RUBROS = [
 ];
 
 const ORDEN_OPTIONS = [
-  { value: 'stock_asc', label: 'Stock bajo primero' },
   { value: 'nuevos', label: 'Más nuevos' },
+  { value: 'nombre', label: 'Alfabético' },
   { value: 'precio_asc', label: 'Menor precio' },
   { value: 'precio_desc', label: 'Mayor precio' },
-  { value: 'nombre', label: 'Alfabético' },
 ];
 
 export default function Home() {
@@ -62,36 +68,42 @@ export default function Home() {
   const [subrubroFilter, setSubrubroFilter] = useState('');
   const [talleFilter, setTalleFilter] = useState('');
   const [marcaFilter, setMarcaFilter] = useState('');
+  const [taxonomiaFilter, setTaxonomiaFilter] = useState('');
+  const [lineaFilter, setLineaFilter] = useState('');
   const [precioMin, setPrecioMin] = useState('');
   const [precioMax, setPrecioMax] = useState('');
   const [ordenFilter, setOrdenFilter] = useState('nuevos');
-  const [soloSinFoto, setSoloSinFoto] = useState(false);
+  const [soloDestacados, setSoloDestacados] = useState(false);
 
   const [subrubrosDisponibles, setSubrubrosDisponibles] = useState<string[]>([]);
   const [tallesDisponibles, setTallesDisponibles] = useState<string[]>([]);
   const [marcasDisponibles, setMarcasDisponibles] = useState<string[]>([]);
+  const [taxonomiasDisponibles, setTaxonomiasDisponibles] = useState<{nombre: string; descripcion: string | null}[]>([]);
+  const [lineasDisponibles, setLineasDisponibles] = useState<string[]>([]);
 
-  // ⬇️ NUEVO: trackear imágenes que fallaron
   const [imagenesFallidas, setImagenesFallidas] = useState<Set<string>>(new Set());
 
-  // ⬇️ NUEVO: callback para cuando una imagen falla
   const onImageError = useCallback((familiaId: string) => {
     setImagenesFallidas(prev => new Set(prev).add(familiaId));
   }, []);
 
- // filtros iniciales
+  // Filtros iniciales
   useEffect(() => { fetchFiltros(); }, []);
   
-  // filtros dinámicos
-  useEffect(() => { fetchFiltrosDinamicos(); }, [rubroFilter, subrubroFilter]);
+  // Filtros dinámicos
+  useEffect(() => { 
+    fetchFiltrosDinamicos(); 
+  }, [rubroFilter, subrubroFilter, taxonomiaFilter, lineaFilter]);
   
-  // ⬇️ NUEVO: leer parámetros de URL
+  // Leer parámetros de URL
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const search = params.get('search');
     const rubro = params.get('rubro');
     const subrubro = params.get('subrubro');
     const marca = params.get('marca');
+    const taxonomia = params.get('taxonomia');
+    const linea = params.get('linea');
     const talle = params.get('talle');
     const precioMinParam = params.get('precioMin');
     const precioMaxParam = params.get('precioMax');
@@ -101,25 +113,28 @@ export default function Home() {
     if (rubro && rubro !== 'all') setRubroFilter(rubro);
     if (subrubro) setSubrubroFilter(subrubro);
     if (marca) setMarcaFilter(marca);
+    if (taxonomia) setTaxonomiaFilter(taxonomia);
+    if (linea) setLineaFilter(linea);
     if (talle) setTalleFilter(talle);
     if (precioMinParam) setPrecioMin(precioMinParam);
     if (precioMaxParam) setPrecioMax(precioMaxParam);
     if (orden) setOrdenFilter(orden);
-    }, []);
+  }, []);
 
-      // búsqueda de productos
-      useEffect(() => {
-        const hayBusqueda = searchTerm.trim().length > 0;
-        const hayFiltrosEspecificos =
-          subrubroFilter || talleFilter || marcaFilter || precioMin || precioMax || soloSinFoto;
+  // Búsqueda de productos
+  useEffect(() => {
+    const hayBusqueda = searchTerm.trim().length > 0;
+    const hayFiltrosEspecificos =
+      subrubroFilter || talleFilter || marcaFilter || taxonomiaFilter || 
+      lineaFilter || precioMin || precioMax || soloDestacados;
 
-        if (hayBusqueda || (rubroFilter === 'all' && hayFiltrosEspecificos) || (rubroFilter !== 'all' && hayFiltrosEspecificos)) {
-          const id = setTimeout(fetchProductos, 400);
-          return () => clearTimeout(id);
-        } else {
-          setFamilias([]);
-        }
-      }, [searchTerm, rubroFilter, subrubroFilter, talleFilter, marcaFilter, precioMin, precioMax, ordenFilter, soloSinFoto]);
+    if (hayBusqueda || (rubroFilter === 'all' && hayFiltrosEspecificos) || (rubroFilter !== 'all' && hayFiltrosEspecificos)) {
+      const id = setTimeout(fetchProductos, 400);
+      return () => clearTimeout(id);
+    } else {
+      setFamilias([]);
+    }
+  }, [searchTerm, rubroFilter, subrubroFilter, talleFilter, marcaFilter, taxonomiaFilter, lineaFilter, precioMin, precioMax, ordenFilter, soloDestacados]);
  
   async function fetchFiltros() {
     try {
@@ -130,6 +145,8 @@ export default function Home() {
       setSubrubrosDisponibles(data.filtros.subrubros || []);
       setMarcasDisponibles(data.filtros.marcas || []);
       setTallesDisponibles(data.filtros.talles || []);
+      setTaxonomiasDisponibles(data.filtros.taxonomias || []);
+      setLineasDisponibles(data.filtros.lineas || []);
     } catch (e) {
       console.error(e);
     } finally {
@@ -142,6 +159,8 @@ export default function Home() {
       const params = new URLSearchParams({ only_filters: 'true' });
       if (rubroFilter !== 'all') params.append('rubro', rubroFilter);
       if (subrubroFilter) params.append('subrubro', subrubroFilter);
+      if (taxonomiaFilter) params.append('taxonomia', taxonomiaFilter);
+      if (lineaFilter) params.append('linea', lineaFilter);
 
       const res = await fetch(`/api/productos?${params.toString()}`, { cache: 'no-store' });
       if (!res.ok) return;
@@ -150,6 +169,8 @@ export default function Home() {
       setMarcasDisponibles(data.filtros.marcas || []);
       setTallesDisponibles(data.filtros.talles || []);
       if (!subrubroFilter) setSubrubrosDisponibles(data.filtros.subrubros || []);
+      if (!taxonomiaFilter) setTaxonomiasDisponibles(data.filtros.taxonomias || []);
+      if (!lineaFilter) setLineasDisponibles(data.filtros.lineas || []);
     } catch (e) {
       console.error(e);
     }
@@ -159,7 +180,6 @@ export default function Home() {
     try {
       setLoading(true);
       setError(null);
-      // ⬇️ NUEVO: resetear imágenes fallidas al hacer nueva búsqueda
       setImagenesFallidas(new Set());
 
       const params = new URLSearchParams();
@@ -168,10 +188,12 @@ export default function Home() {
       if (subrubroFilter) params.append('subrubro', subrubroFilter);
       if (talleFilter) params.append('talle', talleFilter);
       if (marcaFilter) params.append('marca', marcaFilter);
+      if (taxonomiaFilter) params.append('taxonomia', taxonomiaFilter);
+      if (lineaFilter) params.append('linea', lineaFilter);
       if (precioMin) params.append('precioMin', precioMin);
       if (precioMax) params.append('precioMax', precioMax);
       if (ordenFilter) params.append('orden', ordenFilter);
-      if (soloSinFoto) params.append('sinFoto', '1');
+      if (soloDestacados) params.append('destacados', '1');
       params.append('limit', '2000');
 
       const res = await fetch(`/api/productos?${params.toString()}`, { cache: 'no-store' });
@@ -205,6 +227,9 @@ export default function Home() {
           marca_descripcion: p.marca_descripcion,
           rubro: p.rubro,
           subrubro_nombre: p.subrubro_nombre,
+          taxonomia: p.taxonomia,
+          linea: p.linea,
+          destacado: p.destacado,
           precio_lista: p.precio_lista,
           variantes: [],
         };
@@ -236,54 +261,63 @@ export default function Home() {
     setSubrubroFilter('');
     setTalleFilter('');
     setMarcaFilter('');
+    setTaxonomiaFilter('');
+    setLineaFilter('');
     setPrecioMin('');
     setPrecioMax('');
-    setSoloSinFoto(false);
-    setImagenesFallidas(new Set()); // ⬅️ NUEVO: limpiar también las imágenes fallidas
+    setSoloDestacados(false);
+    setImagenesFallidas(new Set());
   }
 
   const hayBusqueda = searchTerm.trim().length > 0;
   const hayFiltrosEspecificos =
-    subrubroFilter || marcaFilter || talleFilter || precioMin || precioMax || soloSinFoto;
+    subrubroFilter || marcaFilter || talleFilter || taxonomiaFilter || 
+    lineaFilter || precioMin || precioMax || soloDestacados;
 
-  // ⬇️ NUEVO: filtrar familias con imágenes fallidas
   const familiasValidas = familias.filter(f => !imagenesFallidas.has(f.familia_id));
 
   if (loadingFilters) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto" />
-          <p className="mt-4 text-gray-600">Cargando catálogo...</p>
+          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mx-auto" />
+          <p className="mt-6 text-lg text-gray-700 font-medium">Cargando catálogo...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
-        <div className="mb-4">
-          <input
-            type="text"
-            placeholder="Buscar producto, marca o tipo..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg"
-          />
+        {/* Buscador */}
+        <div className="mb-6">
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Buscar por producto, marca o tipo..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full px-6 py-4 pl-12 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-lg shadow-sm"
+            />
+            <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow mb-4 overflow-x-auto">
-          <div className="flex border-b">
+        {/* Tabs de Rubros */}
+        <div className="bg-white rounded-xl shadow-sm mb-6 overflow-hidden border border-gray-200">
+          <div className="flex overflow-x-auto">
             {RUBROS.map(r => (
               <button
                 key={r.value}
                 onClick={() => setRubroFilter(r.value)}
-                className={`px-6 py-4 font-medium transition-colors whitespace-nowrap ${
+                className={`px-8 py-4 font-semibold transition-all whitespace-nowrap border-b-4 ${
                   rubroFilter === r.value
-                    ? 'border-b-2 border-blue-600 text-blue-600'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                    ? 'border-blue-600 text-blue-600 bg-blue-50'
+                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                 }`}
               >
                 {r.label}
@@ -292,12 +326,14 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 mb-4">
+        {/* Filtros principales */}
+        <div className="bg-white rounded-xl shadow-sm p-6 mb-6 border border-gray-200">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+            {/* Tipo (Subrubro) */}
             <select
               value={subrubroFilter}
               onChange={(e) => setSubrubroFilter(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium"
             >
               <option value="">Todos los tipos</option>
               {subrubrosDisponibles.map(s => (
@@ -305,10 +341,11 @@ export default function Home() {
               ))}
             </select>
 
+            {/* Marca */}
             <select
               value={marcaFilter}
               onChange={(e) => setMarcaFilter(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium"
             >
               <option value="">Todas las marcas</option>
               {marcasDisponibles.map(m => (
@@ -316,49 +353,88 @@ export default function Home() {
               ))}
             </select>
 
+            {/* Talle */}
+            {/* TEMPORALMENTE DESHABILITADO - Requiere datos de producto_variantes
             <select
               value={talleFilter}
               onChange={(e) => setTalleFilter(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium"
             >
               <option value="">Todos los talles</option>
               {tallesDisponibles.map(t => (
                 <option key={t} value={t}>{t}</option>
               ))}
             </select>
+            */}
 
-            <input
-              type="number"
-              placeholder="Precio mínimo"
-              value={precioMin}
-              onChange={(e) => setPrecioMin(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-            <input
-              type="number"
-              placeholder="Precio máximo"
-              value={precioMax}
-              onChange={(e) => setPrecioMax(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
+            {/* Uso/Ocasión (Taxonomía) */}
+            <select
+              value={taxonomiaFilter}
+              onChange={(e) => setTaxonomiaFilter(e.target.value)}
+              className="px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium"
+            >
+              <option value="">Uso/Ocasión</option>
+              {taxonomiasDisponibles.map(t => (
+                <option key={t.nombre} value={t.nombre}>
+                  {getTaxonomyIcon(t.nombre)} {t.nombre}
+                </option>
+              ))}
+            </select>
 
-            <label className="flex items-center gap-2 px-2">
+            {/* Temporada (Línea) */}
+            <select
+              value={lineaFilter}
+              onChange={(e) => setLineaFilter(e.target.value)}
+              className="px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium"
+            >
+              <option value="">Temporada</option>
+              {lineasDisponibles.map(l => (
+                <option key={l} value={l}>
+                  {getLineaIcon(l)} {l}
+                </option>
+              ))}
+            </select>
+
+            {/* Destacados */}
+            <label className="flex items-center gap-3 px-4 py-3 border-2 border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-all">
               <input
                 type="checkbox"
-                checked={soloSinFoto}
-                onChange={(e) => setSoloSinFoto(e.target.checked)}
+                checked={soloDestacados}
+                onChange={(e) => setSoloDestacados(e.target.checked)}
+                className="w-5 h-5 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
               />
-              <span className="text-sm text-gray-700">Sólo sin foto</span>
+              <span className="font-medium text-gray-700">⭐ Destacados</span>
             </label>
           </div>
 
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <label className="text-sm text-gray-600">Ordenar por:</label>
+          {/* Precio y ordenar */}
+          <div className="flex flex-wrap items-center gap-4 pt-4 border-t border-gray-200">
+            {/* TEMPORALMENTE DESHABILITADO - Requiere datos de producto_variantes
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                placeholder="$ Min"
+                value={precioMin}
+                onChange={(e) => setPrecioMin(e.target.value)}
+                className="w-32 px-4 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+              />
+              <span className="text-gray-400">-</span>
+              <input
+                type="number"
+                placeholder="$ Max"
+                value={precioMax}
+                onChange={(e) => setPrecioMax(e.target.value)}
+                className="w-32 px-4 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+              />
+            </div>
+            */}
+
+            <div className="flex items-center gap-3 flex-1">
+              <label className="text-sm font-medium text-gray-600">Ordenar:</label>
               <select
                 value={ordenFilter}
                 onChange={(e) => setOrdenFilter(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="px-4 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
               >
                 {ORDEN_OPTIONS.map(o => (
                   <option key={o.value} value={o.value}>{o.label}</option>
@@ -369,43 +445,47 @@ export default function Home() {
             {(hayFiltrosEspecificos || hayBusqueda || rubroFilter !== 'all') && (
               <button
                 onClick={limpiarFiltros}
-                className="px-4 py-2 text-sm text-blue-600 hover:text-blue-800 underline"
+                className="px-6 py-2 text-sm font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-all border-2 border-blue-200"
               >
-                Limpiar filtros
+                🗑️ Limpiar filtros
               </button>
             )}
           </div>
         </div>
 
+        {/* Loading */}
         {loading && (
-          <div className="text-center py-4">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900" />
-            <p className="mt-2 text-sm text-gray-600">Buscando productos...</p>
+          <div className="text-center py-12">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-4 border-blue-600" />
+            <p className="mt-4 text-gray-600 font-medium">Buscando productos...</p>
           </div>
         )}
 
+        {/* Contador de resultados */}
         {!loading && familiasValidas.length > 0 && (
-          <p className="text-sm text-gray-600 mt-4">
-            Mostrando {familiasValidas.length} {familiasValidas.length === 1 ? 'familia' : 'familias'} de productos
-          </p>
+          <div className="mb-6 flex items-center justify-between">
+            <p className="text-lg font-semibold text-gray-700">
+              🎯 {familiasValidas.length} {familiasValidas.length === 1 ? 'producto encontrado' : 'productos encontrados'}
+            </p>
+          </div>
         )}
 
+        {/* Sin búsqueda */}
         {!loading && !hayBusqueda && familiasValidas.length === 0 && (
-          <div className="text-center py-12 bg-white rounded-lg shadow mt-4">
-            <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-            </svg>
-            <h3 className="mt-2 text-sm font-medium text-gray-900">Buscá tu calzado ideal</h3>
-            <p className="mt-1 text-sm text-gray-500">
+          <div className="text-center py-16 bg-white rounded-xl shadow-sm border border-gray-200">
+            <div className="text-6xl mb-4">🔍</div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">Buscá tu calzado ideal</h3>
+            <p className="text-gray-600 max-w-md mx-auto">
               {rubroFilter !== 'all'
-                ? 'Seleccioná tipo de calzado, marca o talle para ver productos'
+                ? 'Usá los filtros para encontrar el producto perfecto'
                 : 'Seleccioná un rubro o aplicá filtros para ver los productos'}
             </p>
           </div>
         )}
 
+        {/* Grid de productos */}
         {!loading && familiasValidas.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mt-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {familiasValidas.map(f => (
               <ProductCard 
                 key={f.familia_id} 
@@ -416,14 +496,16 @@ export default function Home() {
           </div>
         )}
 
+        {/* Error */}
         {error && (
-          <div className="text-center py-12">
-            <p className="text-red-500 text-lg">{error}</p>
+          <div className="text-center py-16 bg-red-50 rounded-xl border-2 border-red-200">
+            <div className="text-5xl mb-4">⚠️</div>
+            <p className="text-red-600 text-lg font-medium mb-4">{error}</p>
             <button
               onClick={fetchProductos}
-              className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="px-8 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold shadow-lg transition-all"
             >
-              Reintentar
+              🔄 Reintentar
             </button>
           </div>
         )}

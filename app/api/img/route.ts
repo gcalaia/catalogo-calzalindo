@@ -31,17 +31,26 @@ export async function GET(req: NextRequest) {
 
   // 1) si viene URL completa
   if (u) {
-    try { return await tryFetch(u); } catch {}
-    return NextResponse.redirect(PLACEHOLDER, { status: 302 });
+    try { 
+      return await tryFetch(u); 
+    } catch {
+      // Si falla, retornar placeholder con URL absoluta
+      const placeholderUrl = new URL(PLACEHOLDER, req.url);
+      return NextResponse.redirect(placeholderUrl, { status: 302 });
+    }
   }
 
   // 2) si viene path, probá externo -> interno
   if (p) {
     const urls = [`${EXT}/${p}`, `${INT}/${p}`];
     for (const url of urls) {
-      try { return await tryFetch(url); } catch {}
+      try { 
+        return await tryFetch(url); 
+      } catch {}
     }
   }
 
-  return NextResponse.redirect(PLACEHOLDER, { status: 302 });
+  // Si nada funciona, retornar placeholder
+  const placeholderUrl = new URL(PLACEHOLDER, req.url);
+  return NextResponse.redirect(placeholderUrl, { status: 302 });
 }

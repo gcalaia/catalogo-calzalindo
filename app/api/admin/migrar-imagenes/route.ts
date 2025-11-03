@@ -1,105 +1,92 @@
 import { NextResponse } from 'next/server';
+import pLimit from 'p-limit';
 import { prisma } from '@/lib/prisma';
 
 const API_IMAGEN_URL = 'http://200.58.109.125:8007/api/imagen';
+const CONCURRENCY = 8;
+const TIMEOUT_MS = 5000;
 
-export async function POST(request: Request) {
+function sleep(ms:number){ return new Promise(r=>setTimeout(r,ms)); }
+
+async function getJsonWithTimeout(url: string, ms = TIMEOUT_MS) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort('timeout'), ms);
   try {
-    const { limite = 500, offset = 0 } = await request.json();
+    const res = await fetch(url, { signal: ctrl.signal });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch { return null; }
+  finally { clearTimeout(t); }
+}
 
+export async function POST(req: Request) {
+  try {
+    const { limite = 500, offset = 0 } = await req.json();
+
+    // Trae sólo pendientes y con stock
     const productos = await prisma.producto.findMany({
       where: {
         imagen_url: null,
         stock_disponible: { gt: 0 },
-        rubro: { in: ['DAMAS', 'HOMBRES', 'NIÑOS', 'NIÑAS', 'UNISEX'] }
+        rubro: { in: ['DAMAS','HOMBRES','NIÑOS','NIÑAS','UNISEX'] },
       },
-      select: {
-        codigo: true,
-      },
+      select: { codigo: true },
       distinct: ['codigo'],
       skip: offset,
       take: limite,
-      orderBy: { stock_disponible: 'desc' }
+      orderBy: { stock_disponible: 'desc' },
     });
 
-    console.log(`Procesando ${productos.length} codigos (offset: ${offset})...`);
+    const limit = pLimit(CONCURRENCY);
+    let procesados = 0, exitosos = 0, sinImagen = 0, errores = 0;
+    const detalles: any[] = [];
 
-    const resultados = {
-      procesados: 0,
-      exitosos: 0,
-      sinImagen: 0,
-      errores: 0,
-      detalles: [] as any[]
-    };
+    await Promise.all(productos.map(p => limit(async () => {
+      procesados++;
+      const url = `${API_IMAGEN_URL}/${p.codigo}`;
 
-    const BATCH_SIZE = 10;
-    for (let i = 0; i < productos.length; i += BATCH_SIZE) {
-      const batch = productos.slice(i, i + BATCH_SIZE);
-      
-      await Promise.all(
-        batch.map(async (producto) => {
-          resultados.procesados++;
-          
-          try {
-            const res = await fetch(`${API_IMAGEN_URL}/${producto.codigo}`, {
-              signal: AbortSignal.timeout(5000)
-            });
-            
-            if (!res.ok) {
-              resultados.sinImagen++;
-              return;
-            }
+      // pequeño retry 2 intentos
+      let data = await getJsonWithTimeout(url);
+      if (!data) { await sleep(120); data = await getJsonWithTimeout(url); }
 
-            const data = await res.json();
-            
-            if (data.url_absoluta) {
-              const match = data.url_absoluta.match(/\/imagenes\/(.+)$/);
-              if (match) {
-                const proxyUrl = `/proxy/imagen/${match[1]}`;
-                
-                const result = await prisma.producto.updateMany({
-                  where: { codigo: producto.codigo },
-                  data: { imagen_url: proxyUrl }
-                });
-                
-                resultados.exitosos++;
-                resultados.detalles.push({
-                  codigo: producto.codigo,
-                  url: proxyUrl,
-                  actualizados: result.count
-                });
-                
-                console.log(`OK ${producto.codigo} -> ${result.count} productos`);
-              }
-            } else {
-              resultados.sinImagen++;
-            }
-          } catch (error: any) {
-            resultados.errores++;
-            console.error(`Error codigo ${producto.codigo}:`, error.message);
-          }
-        })
-      );
+      if (!data || !data.url_absoluta) {
+        sinImagen++;
+        await prisma.producto.updateMany({
+          where: { codigo: p.codigo, imagen_url: null },
+          data: { imagen_status: 'missing', imagen_checked_at: new Date() },
+        });
+        return;
+      }
 
-      await new Promise(resolve => setTimeout(resolve, 100));
-    }
+      const m = String(data.url_absoluta).match(/\/imagenes\/(.+)$/);
+      if (!m) {
+        errores++;
+        await prisma.producto.updateMany({
+          where: { codigo: p.codigo, imagen_url: null },
+          data: { imagen_status: 'error', imagen_checked_at: new Date() },
+        });
+        return;
+      }
 
-    const mensaje = `Exitosos: ${resultados.exitosos}, Sin imagen: ${resultados.sinImagen}, Errores: ${resultados.errores}, Total: ${resultados.procesados}`;
+      const proxyUrl = `/proxy/imagen/${m[1]}`;
 
-    console.log(mensaje);
+      // Idempotente: sólo si sigue null
+      const result = await prisma.producto.updateMany({
+        where: { codigo: p.codigo, imagen_url: null },
+        data: { imagen_url: proxyUrl, imagen_status: 'ok', imagen_checked_at: new Date() },
+      });
 
-    return NextResponse.json({
-      success: true,
-      ...resultados,
-      mensaje,
-      siguienteOffset: offset + limite
-    });
+      if (result.count > 0) {
+        exitosos++;
+        detalles.push({ codigo: p.codigo, url: proxyUrl, actualizados: result.count });
+      } else {
+        // ya estaba seteado por otro proceso
+      }
+    })));
 
-  } catch (error) {
-    console.error('Error critico:', error);
-    return NextResponse.json(
-      { error: 'Error al migrar imagenes' },
-      { status: 500 }
-    );
+    const mensaje = `OK:${exitosos} SIN:${sinImagen} ERR:${errores} TOT:${procesados}`;
+    return NextResponse.json({ success: true, procesados, exitosos, sinImagen, errores, detalles, mensaje, siguienteOffset: offset + limite });
+  } catch (e) {
+    return NextResponse.json({ success: false, error: 'Error al migrar imagenes' }, { status: 500 });
   }
 }

@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 
 export async function GET() {
   try {
+    // Traer TODOS los productos sin imagen (no solo 500)
     const productos = await prisma.producto.findMany({
       where: {
         stock_disponible: { gt: 0 },
@@ -10,19 +11,11 @@ export async function GET() {
         OR: [
           { imagen_url: null },
           { imagen_url: '' },
-          { imagen_url: { contains: 'evirtual.calzalindo.com.ar:58000' } },
-          { imagen_url: { contains: '0000000000000' } },
-          { imagen_url: { endsWith: '000000000001.jpg' } },
-          { imagen_url: { contains: 'no_image' } },
-          { imagen_url: { contains: 'placeholder' } },
-        ],
-        NOT: {
-          imagen_url: { startsWith: '/proxy/imagen/' }
-        }
+        ]
       },
       select: {
         id: true,
-        codigo: true, // ← IMPORTANTE: necesitamos el código
+        codigo: true,
         nombre: true,
         imagen_url: true,
         marca_descripcion: true,
@@ -32,11 +25,11 @@ export async function GET() {
         stock_disponible: true,
         familia_id: true,
       },
-      take: 500,
+      take: 1000, // ← Aumentar a 1000 para ver más productos
       orderBy: { stock_disponible: 'desc' }
     });
 
-    console.log(`✅ Encontrados ${productos.length} productos con imágenes inválidas`);
+    console.log(`✅ Encontrados ${productos.length} productos sin imagen`);
 
     // Agrupar por familia
     const familias = new Map<string, any>();
@@ -47,7 +40,7 @@ export async function GET() {
       if (!familias.has(familiaKey)) {
         familias.set(familiaKey, {
           familia_id: familiaKey,
-          codigo: p.codigo, // ← NUEVO: guardar el código real
+          codigo: p.codigo,
           nombre: p.nombre.split(/\s+/).slice(0, 5).join(' '),
           marca: p.marca_descripcion,
           rubro: p.rubro,

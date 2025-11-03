@@ -1,177 +1,155 @@
 'use client';
 
-import { useState } from 'react';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Search, X } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 
-export interface FilterValues {
-  search: string;
-  marca: string;
-  talla: string;
-  color: string;
-  rubro: string;
+interface FilterOption {
+  id: number;
+  nombre: string;
 }
 
 interface FiltersProps {
-  onFilterChange: (filters: FilterValues) => void;
-  marcas: string[];
-  tallas: string[];
-  colores: string[];
-  rubros: string[];
+  onFilterChange: (filters: {
+    marca_id?: number;
+    rubro_id?: number;
+    subrubro_id?: number;
+  }) => void;
 }
 
-export default function Filters({ 
-  onFilterChange, 
-  marcas, 
-  tallas, 
-  colores,
-  rubros
-}: FiltersProps) {
-  const [filters, setFilters] = useState<FilterValues>({
-    search: '',
-    marca: '',
-    talla: '',
-    color: '',
-    rubro: '',
-  });
+export default function Filters({ onFilterChange }: FiltersProps) {
+  const [marcas, setMarcas] = useState<FilterOption[]>([]);
+  const [rubros, setRubros] = useState<FilterOption[]>([]);
+  const [subrubros, setSubrubros] = useState<FilterOption[]>([]);
+  
+  const [selectedMarca, setSelectedMarca] = useState<number | undefined>();
+  const [selectedRubro, setSelectedRubro] = useState<number | undefined>();
+  const [selectedSubrubro, setSelectedSubrubro] = useState<number | undefined>();
 
-  const handleFilterChange = (key: keyof FilterValues, value: string) => {
-    const newFilters = { ...filters, [key]: value };
-    setFilters(newFilters);
-    onFilterChange(newFilters);
-  };
+  // Cargar filtros disponibles
+  useEffect(() => {
+    const loadFilters = async () => {
+      try {
+        const response = await fetch('/api/filtros');
+        if (!response.ok) {
+          throw new Error('Error al cargar filtros');
+        }
+        const data = await response.json();
+        
+        // Asegurarse de que los datos existen y tienen la propiedad 'nombre'
+        setMarcas(Array.isArray(data.marcas) ? data.marcas.filter(m => m.nombre) : []);
+        setRubros(Array.isArray(data.rubros) ? data.rubros.filter(r => r.nombre) : []);
+        setSubrubros(Array.isArray(data.subrubros) ? data.subrubros.filter(s => s.nombre) : []);
+      } catch (error) {
+        console.error('Error cargando filtros:', error);
+        // Establecer arrays vacíos en caso de error
+        setMarcas([]);
+        setRubros([]);
+        setSubrubros([]);
+      }
+    };
+    
+    loadFilters();
+  }, []);
+
+  // Aplicar filtros
+  useEffect(() => {
+    onFilterChange({
+      marca_id: selectedMarca,
+      rubro_id: selectedRubro,
+      subrubro_id: selectedSubrubro,
+    });
+  }, [selectedMarca, selectedRubro, selectedSubrubro, onFilterChange]);
 
   const clearFilters = () => {
-    const emptyFilters = {
-      search: '',
-      marca: '',
-      talla: '',
-      color: '',
-      rubro: '',
-    };
-    setFilters(emptyFilters);
-    onFilterChange(emptyFilters);
+    setSelectedMarca(undefined);
+    setSelectedRubro(undefined);
+    setSelectedSubrubro(undefined);
   };
 
-  const hasActiveFilters = Object.values(filters).some(value => value !== '');
+  const hasActiveFilters = selectedMarca || selectedRubro || selectedSubrubro;
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle>Filtros</CardTitle>
-          {hasActiveFilters && (
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={clearFilters}
+    <div className="space-y-4">
+      {/* Botón limpiar filtros */}
+      {hasActiveFilters && (
+        <Button 
+          variant="outline" 
+          className="w-full" 
+          onClick={clearFilters}
+        >
+          Limpiar filtros
+        </Button>
+      )}
+
+      {/* Filtro por Rubro */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm">Categoría</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {rubros.map((rubro) => (
+            <button
+              key={rubro.id}
+              onClick={() => setSelectedRubro(rubro.id === selectedRubro ? undefined : rubro.id)}
+              className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
+                selectedRubro === rubro.id
+                  ? 'bg-primary text-primary-foreground'
+                  : 'hover:bg-gray-100'
+              }`}
             >
-              <X className="mr-1 h-4 w-4" />
-              Limpiar
-            </Button>
-          )}
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Buscador */}
-        <div className="relative">
-          <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-          <Input
-            placeholder="Buscar producto..."
-            value={filters.search}
-            onChange={(e) => handleFilterChange('search', e.target.value)}
-            className="pl-10"
-          />
-        </div>
+              {rubro.nombre}
+            </button>
+          ))}
+        </CardContent>
+      </Card>
 
-        {/* Ordenar por */}
-        <div>
-          <label className="text-sm font-medium mb-2 block">Ordenar por</label>
-          <select
-            onChange={(e) => {
-              const event = new CustomEvent('ordenar', { detail: e.target.value });
-              window.dispatchEvent(event);
-            }}
-            className="w-full p-2 border rounded-md bg-white"
-          >
-            <option value="nombre">Nombre (A-Z)</option>
-            <option value="recientes">Recién llegados</option>
-            <option value="antiguos">Más antiguos (rotar stock)</option>
-            <option value="precio-menor">Precio: menor a mayor</option>
-            <option value="precio-mayor">Precio: mayor a menor</option>
-          </select>
-        </div>
+      {/* Filtro por Marca */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm">Marca</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2 max-h-96 overflow-y-auto">
+          {marcas.map((marca) => (
+            <button
+              key={marca.id}
+              onClick={() => setSelectedMarca(marca.id === selectedMarca ? undefined : marca.id)}
+              className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
+                selectedMarca === marca.id
+                  ? 'bg-primary text-primary-foreground'
+                  : 'hover:bg-gray-100'
+              }`}
+            >
+              {marca.nombre}
+            </button>
+          ))}
+        </CardContent>
+      </Card>
 
-        {/* Categoría (Rubro) */}
-        <div>
-          <label className="text-sm font-medium mb-2 block">Categoría</label>
-          <select
-            value={filters.rubro}
-            onChange={(e) => handleFilterChange('rubro', e.target.value)}
-            className="w-full p-2 border rounded-md bg-white"
-          >
-            <option value="">Todas las categorías</option>
-            {rubros.map((rubro) => (
-              <option key={rubro} value={rubro}>
-                {rubro}
-              </option>
+      {/* Filtro por Subrubro */}
+      {subrubros.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">Subcategoría</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 max-h-64 overflow-y-auto">
+            {subrubros.map((subrubro) => (
+              <button
+                key={subrubro.id}
+                onClick={() => setSelectedSubrubro(subrubro.id === selectedSubrubro ? undefined : subrubro.id)}
+                className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
+                  selectedSubrubro === subrubro.id
+                    ? 'bg-primary text-primary-foreground'
+                    : 'hover:bg-gray-100'
+                }`}
+              >
+                {subrubro.nombre}
+              </button>
             ))}
-          </select>
-        </div>
-
-        {/* Marca */}
-        <div>
-          <label className="text-sm font-medium mb-2 block">Marca</label>
-          <select
-            value={filters.marca}
-            onChange={(e) => handleFilterChange('marca', e.target.value)}
-            className="w-full p-2 border rounded-md bg-white"
-          >
-            <option value="">Todas las marcas</option>
-            {marcas.map((marca) => (
-              <option key={marca} value={marca}>
-                {marca}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Talla */}
-        <div>
-          <label className="text-sm font-medium mb-2 block">Talla</label>
-          <select
-            value={filters.talla}
-            onChange={(e) => handleFilterChange('talla', e.target.value)}
-            className="w-full p-2 border rounded-md bg-white"
-          >
-            <option value="">Todas las tallas</option>
-            {tallas.map((talla) => (
-              <option key={talla} value={talla}>
-                {talla}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Color */}
-        <div>
-          <label className="text-sm font-medium mb-2 block">Color</label>
-          <select
-            value={filters.color}
-            onChange={(e) => handleFilterChange('color', e.target.value)}
-            className="w-full p-2 border rounded-md bg-white"
-          >
-            <option value="">Todos los colores</option>
-            {colores.map((color) => (
-              <option key={color} value={color}>
-                {color}
-              </option>
-            ))}
-          </select>
-        </div>
-      </CardContent>
-    </Card>
+          </CardContent>
+        </Card>
+      )}
+    </div>
   );
 }
