@@ -13,7 +13,7 @@ export async function POST(request: Request) {
     }
 
     // Actualizar todos los productos con ese código
-    const resultado = await prisma.producto.updateMany({
+    const resultado = await prisma.productos.updateMany({
       where: { codigo: parseInt(codigo) },
       data: { imagen_url }
     });
