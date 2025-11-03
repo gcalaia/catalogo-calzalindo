@@ -28,6 +28,7 @@ export default function Filters({ onFilterChange }: FiltersProps) {
   const [selectedSubrubro, setSelectedSubrubro] = useState<number | undefined>();
 
   // Cargar filtros disponibles
+  // Cargar filtros disponibles
   useEffect(() => {
     const loadFilters = async () => {
       try {
@@ -38,9 +39,9 @@ export default function Filters({ onFilterChange }: FiltersProps) {
         const data = await response.json();
         
         // Asegurarse de que los datos existen y tienen la propiedad 'nombre'
-        setMarcas(Array.isArray(data.marcas) ? data.marcas.filter((m: any) => m.nombre) : []);
-        setRubros(Array.isArray(data.rubros) ? data.rubros.filter((r: any) => r.nombre) : []);
-        setSubrubros(Array.isArray(data.subrubros) ? data.subrubros.filter((s: any) => s.nombre) : []);
+        setMarcas(Array.isArray(data.marcas) ? data.marcas.filter((m: FilterOption) => m.nombre) : []);
+        setRubros(Array.isArray(data.rubros) ? data.rubros.filter((r: FilterOption) => r.nombre) : []);
+        setSubrubros(Array.isArray(data.subrubros) ? data.subrubros.filter((s: FilterOption) => s.nombre) : []);
       } catch (error) {
         console.error('Error cargando filtros:', error);
         // Establecer arrays vacíos en caso de error
