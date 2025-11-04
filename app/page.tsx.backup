@@ -3,7 +3,6 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import ProductCard from '@/components/ProductCard';
-import Pagination from '@/components/Pagination'; // ⬅️ NUEVO
 import { getTaxonomyIcon, getLineaIcon } from '@/lib/taxonomyIcons';
 
 interface Producto {
@@ -43,16 +42,6 @@ interface ProductoFamilia {
   }[];
 }
 
-// ⬅️ NUEVO: Interface para paginación
-interface PaginacionInfo {
-  total: number;
-  pagina_actual: number;
-  total_paginas: number;
-  por_pagina: number;
-  tiene_anterior: boolean;
-  tiene_siguiente: boolean;
-}
-
 const RUBROS = [
   { value: 'all', label: 'Todos' },
   { value: 'DAMAS', label: 'Damas' },
@@ -73,10 +62,6 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [loadingFilters, setLoadingFilters] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  // ⬅️ NUEVO: Estados de paginación
-  const [paginacion, setPaginacion] = useState<PaginacionInfo | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [rubroFilter, setRubroFilter] = useState('all');
@@ -136,7 +121,7 @@ export default function Home() {
     if (orden) setOrdenFilter(orden);
   }, []);
 
-  // ⬅️ MODIFICADO: Búsqueda de productos con reset de página al cambiar filtros
+  // Búsqueda de productos
   useEffect(() => {
     const hayBusqueda = searchTerm.trim().length > 0;
     const hayFiltrosEspecificos =
@@ -144,27 +129,13 @@ export default function Home() {
       lineaFilter || precioMin || precioMax || soloDestacados;
 
     if (hayBusqueda || (rubroFilter === 'all' && hayFiltrosEspecificos) || (rubroFilter !== 'all' && hayFiltrosEspecificos)) {
-      setCurrentPage(1); // ⬅️ NUEVO: Reset a página 1 al cambiar filtros
-      const id = setTimeout(() => fetchProductos(1), 400); // ⬅️ MODIFICADO: pasar página
+      const id = setTimeout(fetchProductos, 400);
       return () => clearTimeout(id);
     } else {
       setFamilias([]);
-      setPaginacion(null);
     }
   }, [searchTerm, rubroFilter, subrubroFilter, talleFilter, marcaFilter, taxonomiaFilter, lineaFilter, precioMin, precioMax, ordenFilter, soloDestacados]);
-
-  // ⬅️ NUEVO: Efecto para cambio de página
-  useEffect(() => {
-    const hayBusqueda = searchTerm.trim().length > 0;
-    const hayFiltrosEspecificos =
-      subrubroFilter || talleFilter || marcaFilter || taxonomiaFilter || 
-      lineaFilter || precioMin || precioMax || soloDestacados;
-
-    if (currentPage > 1 && (hayBusqueda || hayFiltrosEspecificos || rubroFilter !== 'all')) {
-      fetchProductos(currentPage);
-    }
-  }, [currentPage]);
-
+ 
   async function fetchFiltros() {
     try {
       setLoadingFilters(true);
@@ -205,19 +176,13 @@ export default function Home() {
     }
   }
 
-  // ⬅️ MODIFICADO: Agregar parámetro page y usar paginación
-  async function fetchProductos(page: number = 1) {
+  async function fetchProductos() {
     try {
       setLoading(true);
       setError(null);
       setImagenesFallidas(new Set());
 
       const params = new URLSearchParams();
-      
-      // ⬅️ NUEVO: Parámetros de paginación
-      params.append('page', page.toString());
-      params.append('limit', '24'); // ⬅️ CAMBIADO de 2000 a 24
-      
       if (searchTerm) params.append('search', searchTerm);
       if (rubroFilter !== 'all') params.append('rubro', rubroFilter);
       if (subrubroFilter) params.append('subrubro', subrubroFilter);
@@ -229,21 +194,13 @@ export default function Home() {
       if (precioMax) params.append('precioMax', precioMax);
       if (ordenFilter) params.append('orden', ordenFilter);
       if (soloDestacados) params.append('destacados', '1');
+      params.append('limit', '2000');
 
       const res = await fetch(`/api/productos?${params.toString()}`, { cache: 'no-store' });
       if (!res.ok) throw new Error('Error al cargar productos');
 
       const data = await res.json();
-      
-      // ⬅️ NUEVO: Guardar metadata de paginación
-      setPaginacion(data.paginacion || null);
-      
       agruparPorFamilia(data.productos || []);
-      
-      // ⬅️ NUEVO: Scroll suave hacia arriba al cambiar de página
-      if (page > 1) {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error desconocido');
     } finally {
@@ -310,14 +267,7 @@ export default function Home() {
     setPrecioMax('');
     setSoloDestacados(false);
     setImagenesFallidas(new Set());
-    setCurrentPage(1); // ⬅️ NUEVO: Reset a página 1
-    setPaginacion(null); // ⬅️ NUEVO: Limpiar paginación
   }
-
-  // ⬅️ NUEVO: Handler para cambio de página
-  const handlePageChange = (newPage: number) => {
-    setCurrentPage(newPage);
-  };
 
   const hayBusqueda = searchTerm.trim().length > 0;
   const hayFiltrosEspecificos =
@@ -403,6 +353,20 @@ export default function Home() {
               ))}
             </select>
 
+            {/* Talle */}
+            {/* TEMPORALMENTE DESHABILITADO - Requiere datos de producto_variantes
+            <select
+              value={talleFilter}
+              onChange={(e) => setTalleFilter(e.target.value)}
+              className="px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium"
+            >
+              <option value="">Todos los talles</option>
+              {tallesDisponibles.map(t => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+            */}
+
             {/* Uso/Ocasión (Taxonomía) */}
             <select
               value={taxonomiaFilter}
@@ -445,6 +409,26 @@ export default function Home() {
 
           {/* Precio y ordenar */}
           <div className="flex flex-wrap items-center gap-4 pt-4 border-t border-gray-200">
+            {/* TEMPORALMENTE DESHABILITADO - Requiere datos de producto_variantes
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                placeholder="$ Min"
+                value={precioMin}
+                onChange={(e) => setPrecioMin(e.target.value)}
+                className="w-32 px-4 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+              />
+              <span className="text-gray-400">-</span>
+              <input
+                type="number"
+                placeholder="$ Max"
+                value={precioMax}
+                onChange={(e) => setPrecioMax(e.target.value)}
+                className="w-32 px-4 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+              />
+            </div>
+            */}
+
             <div className="flex items-center gap-3 flex-1">
               <label className="text-sm font-medium text-gray-600">Ordenar:</label>
               <select
@@ -477,16 +461,11 @@ export default function Home() {
           </div>
         )}
 
-        {/* ⬅️ MODIFICADO: Contador de resultados con total real */}
+        {/* Contador de resultados */}
         {!loading && familiasValidas.length > 0 && (
           <div className="mb-6 flex items-center justify-between">
             <p className="text-lg font-semibold text-gray-700">
-              🎯 {paginacion ? paginacion.total.toLocaleString() : familiasValidas.length} productos encontrados
-              {paginacion && paginacion.total_paginas > 1 && (
-                <span className="text-sm font-normal text-gray-500 ml-2">
-                  (Página {paginacion.pagina_actual} de {paginacion.total_paginas})
-                </span>
-              )}
+              🎯 {familiasValidas.length} {familiasValidas.length === 1 ? 'producto encontrado' : 'productos encontrados'}
             </p>
           </div>
         )}
@@ -506,30 +485,15 @@ export default function Home() {
 
         {/* Grid de productos */}
         {!loading && familiasValidas.length > 0 && (
-          <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {familiasValidas.map(f => (
-                <ProductCard 
-                  key={f.familia_id} 
-                  familia={f}
-                  onImageError={() => onImageError(f.familia_id)}
-                />
-              ))}
-            </div>
-
-            {/* ⬅️ NUEVO: Componente de paginación */}
-            {paginacion && paginacion.total_paginas > 1 && (
-              <div className="mt-8">
-                <Pagination
-                  currentPage={paginacion.pagina_actual}
-                  totalPages={paginacion.total_paginas}
-                  totalItems={paginacion.total}
-                  itemsPerPage={paginacion.por_pagina}
-                  onPageChange={handlePageChange}
-                />
-              </div>
-            )}
-          </>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {familiasValidas.map(f => (
+              <ProductCard 
+                key={f.familia_id} 
+                familia={f}
+                onImageError={() => onImageError(f.familia_id)}
+              />
+            ))}
+          </div>
         )}
 
         {/* Error */}
@@ -538,7 +502,7 @@ export default function Home() {
             <div className="text-5xl mb-4">⚠️</div>
             <p className="text-red-600 text-lg font-medium mb-4">{error}</p>
             <button
-              onClick={() => fetchProductos(currentPage)}
+              onClick={fetchProductos}
               className="px-8 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold shadow-lg transition-all"
             >
               🔄 Reintentar
