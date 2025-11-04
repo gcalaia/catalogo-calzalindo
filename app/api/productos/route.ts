@@ -17,14 +17,18 @@ export async function GET(request: Request) {
     const subrubro = searchParams.get('subrubro');
     const marca = searchParams.get('marca');
     const talle = searchParams.get('talle');
-    const taxonomia = searchParams.get('taxonomia'); // ⬅️ NUEVO
-    const linea = searchParams.get('linea'); // ⬅️ NUEVO
+    const taxonomia = searchParams.get('taxonomia');
+    const linea = searchParams.get('linea');
     const precioMin = searchParams.get('precioMin');
     const precioMax = searchParams.get('precioMax');
     const orden = searchParams.get('orden') || 'nuevos';
     const sinFoto = searchParams.get('sinFoto');
-    const destacados = searchParams.get('destacados'); // ⬅️ NUEVO
-    const limit = parseInt(searchParams.get('limit') || '100');
+    const destacados = searchParams.get('destacados');
+    
+    // 🔥 PAGINACIÓN
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '24');
+    const skip = (page - 1) * limit;
 
     // Construir filtros
     const where: any = {
@@ -58,7 +62,6 @@ export async function GET(request: Request) {
       };
     }
 
-    // ⬅️ NUEVO: Filtro por taxonomía (Uso/Ocasión)
     if (taxonomia) {
       where.prod_taxonomias = {
         nombre: {
@@ -68,7 +71,6 @@ export async function GET(request: Request) {
       };
     }
 
-    // ⬅️ NUEVO: Filtro por línea (Temporada)
     if (linea) {
       where.prod_lineas = {
         nombre: {
@@ -78,7 +80,6 @@ export async function GET(request: Request) {
       };
     }
 
-    // ⬅️ NUEVO: Solo destacados
     if (destacados === 'true') {
       where.destacado = true;
     }
@@ -110,16 +111,20 @@ export async function GET(request: Request) {
         break;
     }
 
-    // Obtener productos
+    // 🔥 Contar total de productos (para calcular páginas)
+    const totalProductos = await prisma.productos.count({ where });
+
+    // 🔥 Obtener productos con paginación
     const productos = await prisma.productos.findMany({
       where,
-      take: limit,
+      skip,      // ⬅️ NUEVO: saltar productos de páginas anteriores
+      take: limit, // ⬅️ MODIFICADO: usar limit de paginación
       include: {
         prod_marcas: true,
         prod_rubros: true,
         prod_subrubros: true,
-        prod_lineas: true, // ⬅️ NUEVO
-        prod_taxonomias: true, // ⬅️ NUEVO
+        prod_lineas: true,
+        prod_taxonomias: true,
       },
       orderBy
     });
@@ -149,18 +154,28 @@ export async function GET(request: Request) {
         marca_descripcion: p.prod_marcas?.nombre || null,
         rubro: p.prod_rubros?.nombre || null,
         subrubro_nombre: p.prod_subrubros?.nombre || null,
-        taxonomia: p.prod_taxonomias?.nombre || null, // ⬅️ NUEVO
-        linea: p.prod_lineas?.nombre || null, // ⬅️ NUEVO
-        destacado: p.destacado || false, // ⬅️ NUEVO
+        taxonomia: p.prod_taxonomias?.nombre || null,
+        linea: p.prod_lineas?.nombre || null,
+        destacado: p.destacado || false,
         precio_lista: 50000, // Precio temporal
         stock_disponible: 5, // Stock temporal
         imagen_url: null,
       };
     });
 
+    // 🔥 METADATA DE PAGINACIÓN
+    const totalPaginas = Math.ceil(totalProductos / limit);
+
     return NextResponse.json({
       productos: productosFormateados,
-      total: productosFormateados.length
+      paginacion: {
+        total: totalProductos,
+        pagina_actual: page,
+        total_paginas: totalPaginas,
+        por_pagina: limit,
+        tiene_anterior: page > 1,
+        tiene_siguiente: page < totalPaginas,
+      }
     });
 
   } catch (error) {
@@ -252,7 +267,7 @@ async function getFiltros(searchParams: URLSearchParams) {
       }
     });
 
-    // ⬅️ NUEVO: Obtener taxonomías únicas
+    // Obtener taxonomías únicas
     const taxonomiasData = await prisma.prod_taxonomias.findMany({
       where: {
         productos: {
@@ -268,7 +283,7 @@ async function getFiltros(searchParams: URLSearchParams) {
       }
     });
 
-    // ⬅️ NUEVO: Obtener líneas únicas
+    // Obtener líneas únicas
     const lineasData = await prisma.prod_lineas.findMany({
       where: {
         productos: {
