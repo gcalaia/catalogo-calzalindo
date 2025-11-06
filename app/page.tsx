@@ -3,8 +3,10 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import ProductCard from '@/components/ProductCard';
-import Pagination from '@/components/Pagination'; // ⬅️ NUEVO
-import { getTaxonomyIcon, getLineaIcon } from '@/lib/taxonomyIcons';
+import Pagination from '@/components/Pagination';
+import Sidebar from '@/components/Sidebar';
+import FilterChips from '@/components/FilterChips';
+import FilterModal from '@/components/FilterModal';
 
 interface Producto {
   id: number;
@@ -43,7 +45,6 @@ interface ProductoFamilia {
   }[];
 }
 
-// ⬅️ NUEVO: Interface para paginación
 interface PaginacionInfo {
   total: number;
   pagina_actual: number;
@@ -74,33 +75,100 @@ export default function Home() {
   const [loadingFilters, setLoadingFilters] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // ⬅️ NUEVO: Estados de paginación
+  // Paginación
   const [paginacion, setPaginacion] = useState<PaginacionInfo | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
 
+  // Filtros
   const [searchTerm, setSearchTerm] = useState('');
   const [rubroFilter, setRubroFilter] = useState('all');
-  const [subrubroFilter, setSubrubroFilter] = useState('');
-  const [talleFilter, setTalleFilter] = useState('');
   const [marcaFilter, setMarcaFilter] = useState('');
   const [taxonomiaFilter, setTaxonomiaFilter] = useState('');
   const [lineaFilter, setLineaFilter] = useState('');
-  const [precioMin, setPrecioMin] = useState('');
-  const [precioMax, setPrecioMax] = useState('');
   const [ordenFilter, setOrdenFilter] = useState('nuevos');
   const [soloDestacados, setSoloDestacados] = useState(false);
 
-  const [subrubrosDisponibles, setSubrubrosDisponibles] = useState<string[]>([]);
-  const [tallesDisponibles, setTallesDisponibles] = useState<string[]>([]);
+  // Filtros disponibles
   const [marcasDisponibles, setMarcasDisponibles] = useState<string[]>([]);
   const [taxonomiasDisponibles, setTaxonomiasDisponibles] = useState<{nombre: string; descripcion: string | null}[]>([]);
   const [lineasDisponibles, setLineasDisponibles] = useState<string[]>([]);
 
+  // UI State
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [filterModalOpen, setFilterModalOpen] = useState(false);
   const [imagenesFallidas, setImagenesFallidas] = useState<Set<string>>(new Set());
 
   const onImageError = useCallback((familiaId: string) => {
     setImagenesFallidas(prev => new Set(prev).add(familiaId));
   }, []);
+
+  // Generar chips de filtros activos
+  const getActiveFilters = () => {
+    const chips = [];
+    
+    if (taxonomiaFilter) {
+      chips.push({
+        key: 'taxonomia',
+        label: taxonomiaFilter,
+        value: taxonomiaFilter,
+      });
+    }
+    
+    if (lineaFilter) {
+      chips.push({
+        key: 'linea',
+        label: lineaFilter,
+        value: lineaFilter,
+      });
+    }
+    
+    if (rubroFilter !== 'all') {
+      const rubroLabel = RUBROS.find(r => r.value === rubroFilter)?.label || rubroFilter;
+      chips.push({
+        key: 'rubro',
+        label: rubroLabel,
+        value: rubroFilter,
+      });
+    }
+    
+    if (marcaFilter) {
+      chips.push({
+        key: 'marca',
+        label: marcaFilter,
+        value: marcaFilter,
+      });
+    }
+    
+    if (soloDestacados) {
+      chips.push({
+        key: 'destacados',
+        label: '⭐ Destacados',
+        value: 'true',
+      });
+    }
+    
+    return chips;
+  };
+
+  const removeFilter = (key: string) => {
+    switch (key) {
+      case 'taxonomia':
+        setTaxonomiaFilter('');
+        break;
+      case 'linea':
+        setLineaFilter('');
+        break;
+      case 'rubro':
+        setRubroFilter('all');
+        break;
+      case 'marca':
+        setMarcaFilter('');
+        break;
+      case 'destacados':
+        setSoloDestacados(false);
+        break;
+    }
+  };
 
   // Filtros iniciales
   useEffect(() => { fetchFiltros(); }, []);
@@ -108,57 +176,47 @@ export default function Home() {
   // Filtros dinámicos
   useEffect(() => { 
     fetchFiltrosDinamicos(); 
-  }, [rubroFilter, subrubroFilter, taxonomiaFilter, lineaFilter]);
+  }, [rubroFilter, taxonomiaFilter, lineaFilter]);
   
   // Leer parámetros de URL
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const search = params.get('search');
     const rubro = params.get('rubro');
-    const subrubro = params.get('subrubro');
     const marca = params.get('marca');
     const taxonomia = params.get('taxonomia');
     const linea = params.get('linea');
-    const talle = params.get('talle');
-    const precioMinParam = params.get('precioMin');
-    const precioMaxParam = params.get('precioMax');
     const orden = params.get('orden');
 
     if (search) setSearchTerm(search);
     if (rubro && rubro !== 'all') setRubroFilter(rubro);
-    if (subrubro) setSubrubroFilter(subrubro);
     if (marca) setMarcaFilter(marca);
     if (taxonomia) setTaxonomiaFilter(taxonomia);
     if (linea) setLineaFilter(linea);
-    if (talle) setTalleFilter(talle);
-    if (precioMinParam) setPrecioMin(precioMinParam);
-    if (precioMaxParam) setPrecioMax(precioMaxParam);
     if (orden) setOrdenFilter(orden);
   }, []);
 
-  // ⬅️ MODIFICADO: Búsqueda de productos con reset de página al cambiar filtros
+  // Búsqueda de productos con reset de página al cambiar filtros
   useEffect(() => {
     const hayBusqueda = searchTerm.trim().length > 0;
     const hayFiltrosEspecificos =
-      subrubroFilter || talleFilter || marcaFilter || taxonomiaFilter || 
-      lineaFilter || precioMin || precioMax || soloDestacados;
+      marcaFilter || taxonomiaFilter || lineaFilter || soloDestacados;
 
     if (hayBusqueda || (rubroFilter === 'all' && hayFiltrosEspecificos) || (rubroFilter !== 'all' && hayFiltrosEspecificos)) {
-      setCurrentPage(1); // ⬅️ NUEVO: Reset a página 1 al cambiar filtros
-      const id = setTimeout(() => fetchProductos(1), 400); // ⬅️ MODIFICADO: pasar página
+      setCurrentPage(1);
+      const id = setTimeout(() => fetchProductos(1), 400);
       return () => clearTimeout(id);
     } else {
       setFamilias([]);
       setPaginacion(null);
     }
-  }, [searchTerm, rubroFilter, subrubroFilter, talleFilter, marcaFilter, taxonomiaFilter, lineaFilter, precioMin, precioMax, ordenFilter, soloDestacados]);
+  }, [searchTerm, rubroFilter, marcaFilter, taxonomiaFilter, lineaFilter, ordenFilter, soloDestacados]);
 
-  // ⬅️ NUEVO: Efecto para cambio de página
+  // Efecto para cambio de página
   useEffect(() => {
     const hayBusqueda = searchTerm.trim().length > 0;
     const hayFiltrosEspecificos =
-      subrubroFilter || talleFilter || marcaFilter || taxonomiaFilter || 
-      lineaFilter || precioMin || precioMax || soloDestacados;
+      marcaFilter || taxonomiaFilter || lineaFilter || soloDestacados;
 
     if (currentPage > 1 && (hayBusqueda || hayFiltrosEspecificos || rubroFilter !== 'all')) {
       fetchProductos(currentPage);
@@ -171,9 +229,7 @@ export default function Home() {
       const res = await fetch('/api/productos?only_filters=true', { cache: 'no-store' });
       if (!res.ok) throw new Error('Error al cargar filtros');
       const data = await res.json();
-      setSubrubrosDisponibles(data.filtros.subrubros || []);
       setMarcasDisponibles(data.filtros.marcas || []);
-      setTallesDisponibles(data.filtros.talles || []);
       setTaxonomiasDisponibles(data.filtros.taxonomias || []);
       setLineasDisponibles(data.filtros.lineas || []);
     } catch (e) {
@@ -187,7 +243,6 @@ export default function Home() {
     try {
       const params = new URLSearchParams({ only_filters: 'true' });
       if (rubroFilter !== 'all') params.append('rubro', rubroFilter);
-      if (subrubroFilter) params.append('subrubro', subrubroFilter);
       if (taxonomiaFilter) params.append('taxonomia', taxonomiaFilter);
       if (lineaFilter) params.append('linea', lineaFilter);
 
@@ -196,8 +251,6 @@ export default function Home() {
 
       const data = await res.json();
       setMarcasDisponibles(data.filtros.marcas || []);
-      setTallesDisponibles(data.filtros.talles || []);
-      if (!subrubroFilter) setSubrubrosDisponibles(data.filtros.subrubros || []);
       if (!taxonomiaFilter) setTaxonomiasDisponibles(data.filtros.taxonomias || []);
       if (!lineaFilter) setLineasDisponibles(data.filtros.lineas || []);
     } catch (e) {
@@ -205,7 +258,6 @@ export default function Home() {
     }
   }
 
-  // ⬅️ MODIFICADO: Agregar parámetro page y usar paginación
   async function fetchProductos(page: number = 1) {
     try {
       setLoading(true);
@@ -214,19 +266,14 @@ export default function Home() {
 
       const params = new URLSearchParams();
       
-      // ⬅️ NUEVO: Parámetros de paginación
       params.append('page', page.toString());
-      params.append('limit', '24'); // ⬅️ CAMBIADO de 2000 a 24
+      params.append('limit', '24');
       
       if (searchTerm) params.append('search', searchTerm);
       if (rubroFilter !== 'all') params.append('rubro', rubroFilter);
-      if (subrubroFilter) params.append('subrubro', subrubroFilter);
-      if (talleFilter) params.append('talle', talleFilter);
       if (marcaFilter) params.append('marca', marcaFilter);
       if (taxonomiaFilter) params.append('taxonomia', taxonomiaFilter);
       if (lineaFilter) params.append('linea', lineaFilter);
-      if (precioMin) params.append('precioMin', precioMin);
-      if (precioMax) params.append('precioMax', precioMax);
       if (ordenFilter) params.append('orden', ordenFilter);
       if (soloDestacados) params.append('destacados', '1');
 
@@ -235,12 +282,9 @@ export default function Home() {
 
       const data = await res.json();
       
-      // ⬅️ NUEVO: Guardar metadata de paginación
       setPaginacion(data.paginacion || null);
-      
       agruparPorFamilia(data.productos || []);
       
-      // ⬅️ NUEVO: Scroll suave hacia arriba al cambiar de página
       if (page > 1) {
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
@@ -301,30 +345,26 @@ export default function Home() {
   function limpiarFiltros() {
     setSearchTerm('');
     setRubroFilter('all');
-    setSubrubroFilter('');
-    setTalleFilter('');
     setMarcaFilter('');
     setTaxonomiaFilter('');
     setLineaFilter('');
-    setPrecioMin('');
-    setPrecioMax('');
     setSoloDestacados(false);
     setImagenesFallidas(new Set());
-    setCurrentPage(1); // ⬅️ NUEVO: Reset a página 1
-    setPaginacion(null); // ⬅️ NUEVO: Limpiar paginación
+    setCurrentPage(1);
+    setPaginacion(null);
   }
 
-  // ⬅️ NUEVO: Handler para cambio de página
   const handlePageChange = (newPage: number) => {
     setCurrentPage(newPage);
   };
 
   const hayBusqueda = searchTerm.trim().length > 0;
   const hayFiltrosEspecificos =
-    subrubroFilter || marcaFilter || talleFilter || taxonomiaFilter || 
-    lineaFilter || precioMin || precioMax || soloDestacados;
+    marcaFilter || taxonomiaFilter || lineaFilter || soloDestacados;
 
   const familiasValidas = familias.filter(f => !imagenesFallidas.has(f.familia_id));
+  const activeFilters = getActiveFilters();
+  const cantidadFiltros = activeFilters.length;
 
   if (loadingFilters) {
     return (
@@ -339,213 +379,201 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-
-        {/* Buscador */}
-        <div className="mb-6">
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Buscar por producto, marca o tipo..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full px-6 py-4 pl-12 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-lg shadow-sm"
-            />
-            <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-          </div>
+      <div className="flex">
+        {/* ========== SIDEBAR (Solo desktop) ========== */}
+        <div className="hidden lg:block">
+          <Sidebar
+            taxonomias={taxonomiasDisponibles}
+            lineas={lineasDisponibles}
+            marcas={marcasDisponibles}
+            rubros={RUBROS}
+            taxonomiaSeleccionada={taxonomiaFilter}
+            lineaSeleccionada={lineaFilter}
+            marcaSeleccionada={marcaFilter}
+            rubroSeleccionado={rubroFilter}
+            soloDestacados={soloDestacados}
+            onTaxonomiaChange={setTaxonomiaFilter}
+            onLineaChange={setLineaFilter}
+            onMarcaChange={setMarcaFilter}
+            onRubroChange={setRubroFilter}
+            onDestacadosChange={setSoloDestacados}
+            onLimpiarFiltros={limpiarFiltros}
+            isOpen={false}
+            onToggle={() => {}}
+          />
         </div>
 
-        {/* Tabs de Rubros */}
-        <div className="bg-white rounded-xl shadow-sm mb-6 overflow-hidden border border-gray-200">
-          <div className="flex overflow-x-auto">
-            {RUBROS.map(r => (
-              <button
-                key={r.value}
-                onClick={() => setRubroFilter(r.value)}
-                className={`px-8 py-4 font-semibold transition-all whitespace-nowrap border-b-4 ${
-                  rubroFilter === r.value
-                    ? 'border-blue-600 text-blue-600 bg-blue-50'
-                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
-              >
-                {r.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Filtros principales */}
-        <div className="bg-white rounded-xl shadow-sm p-6 mb-6 border border-gray-200">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-            {/* Tipo (Subrubro) */}
-            <select
-              value={subrubroFilter}
-              onChange={(e) => setSubrubroFilter(e.target.value)}
-              className="px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium"
-            >
-              <option value="">Todos los tipos</option>
-              {subrubrosDisponibles.map(s => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
-
-            {/* Marca */}
-            <select
-              value={marcaFilter}
-              onChange={(e) => setMarcaFilter(e.target.value)}
-              className="px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium"
-            >
-              <option value="">Todas las marcas</option>
-              {marcasDisponibles.map(m => (
-                <option key={m} value={m}>{m}</option>
-              ))}
-            </select>
-
-            {/* Uso/Ocasión (Taxonomía) */}
-            <select
-              value={taxonomiaFilter}
-              onChange={(e) => setTaxonomiaFilter(e.target.value)}
-              className="px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium"
-            >
-              <option value="">Uso/Ocasión</option>
-              {taxonomiasDisponibles.map(t => (
-                <option key={t.nombre} value={t.nombre}>
-                  {getTaxonomyIcon(t.nombre)} {t.nombre}
-                </option>
-              ))}
-            </select>
-
-            {/* Temporada (Línea) */}
-            <select
-              value={lineaFilter}
-              onChange={(e) => setLineaFilter(e.target.value)}
-              className="px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium"
-            >
-              <option value="">Temporada</option>
-              {lineasDisponibles.map(l => (
-                <option key={l} value={l}>
-                  {getLineaIcon(l)} {l}
-                </option>
-              ))}
-            </select>
-
-            {/* Destacados */}
-            <label className="flex items-center gap-3 px-4 py-3 border-2 border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-all">
-              <input
-                type="checkbox"
-                checked={soloDestacados}
-                onChange={(e) => setSoloDestacados(e.target.checked)}
-                className="w-5 h-5 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
-              />
-              <span className="font-medium text-gray-700">⭐ Destacados</span>
-            </label>
-          </div>
-
-          {/* Precio y ordenar */}
-          <div className="flex flex-wrap items-center gap-4 pt-4 border-t border-gray-200">
-            <div className="flex items-center gap-3 flex-1">
-              <label className="text-sm font-medium text-gray-600">Ordenar:</label>
-              <select
-                value={ordenFilter}
-                onChange={(e) => setOrdenFilter(e.target.value)}
-                className="px-4 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-              >
-                {ORDEN_OPTIONS.map(o => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
-              </select>
+        {/* ========== CONTENIDO PRINCIPAL ========== */}
+        <main className="flex-1">
+          {/* Header con buscador */}
+          <div className="sticky top-0 z-30 bg-white border-b border-gray-200 shadow-sm">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+              <div className="flex items-center gap-4">
+                {/* Buscador */}
+                <div className="flex-1 relative">
+                  <input
+                    type="text"
+                    placeholder="Buscar productos..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full px-6 py-3 pl-12 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                  />
+                  <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+              </div>
             </div>
-
-            {(hayFiltrosEspecificos || hayBusqueda || rubroFilter !== 'all') && (
-              <button
-                onClick={limpiarFiltros}
-                className="px-6 py-2 text-sm font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-all border-2 border-blue-200"
-              >
-                🗑️ Limpiar filtros
-              </button>
-            )}
           </div>
-        </div>
 
-        {/* Loading */}
-        {loading && (
-          <div className="text-center py-12">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-4 border-blue-600" />
-            <p className="mt-4 text-gray-600 font-medium">Buscando productos...</p>
-          </div>
-        )}
+          {/* Barra de filtros mobile + info */}
+          <div className="bg-white border-b border-gray-200">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                {/* Botón filtros (mobile) + Contador */}
+                <div className="flex items-center gap-3 w-full sm:w-auto">
+                  <button
+                    onClick={() => setFilterModalOpen(true)}
+                    className="lg:hidden flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                    </svg>
+                    Filtros
+                    {cantidadFiltros > 0 && (
+                      <span className="bg-white text-blue-600 px-2 py-0.5 rounded-full text-xs font-bold">
+                        {cantidadFiltros}
+                      </span>
+                    )}
+                  </button>
 
-        {/* ⬅️ MODIFICADO: Contador de resultados con total real */}
-        {!loading && familiasValidas.length > 0 && (
-          <div className="mb-6 flex items-center justify-between">
-            <p className="text-lg font-semibold text-gray-700">
-              🎯 {paginacion ? paginacion.total.toLocaleString() : familiasValidas.length} productos encontrados
-              {paginacion && paginacion.total_paginas > 1 && (
-                <span className="text-sm font-normal text-gray-500 ml-2">
-                  (Página {paginacion.pagina_actual} de {paginacion.total_paginas})
-                </span>
-              )}
-            </p>
-          </div>
-        )}
+                  {!loading && familiasValidas.length > 0 && paginacion && (
+                    <p className="text-sm font-semibold text-gray-700">
+                      🎯 {paginacion.total.toLocaleString()} productos
+                      <span className="hidden sm:inline text-gray-500 font-normal ml-1">
+                        (Pág. {paginacion.pagina_actual}/{paginacion.total_paginas})
+                      </span>
+                    </p>
+                  )}
+                </div>
 
-        {/* Sin búsqueda */}
-        {!loading && !hayBusqueda && familiasValidas.length === 0 && (
-          <div className="text-center py-16 bg-white rounded-xl shadow-sm border border-gray-200">
-            <div className="text-6xl mb-4">🔍</div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">Buscá tu calzado ideal</h3>
-            <p className="text-gray-600 max-w-md mx-auto">
-              {rubroFilter !== 'all'
-                ? 'Usá los filtros para encontrar el producto perfecto'
-                : 'Seleccioná un rubro o aplicá filtros para ver los productos'}
-            </p>
-          </div>
-        )}
-
-        {/* Grid de productos */}
-        {!loading && familiasValidas.length > 0 && (
-          <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {familiasValidas.map(f => (
-                <ProductCard 
-                  key={f.familia_id} 
-                  familia={f}
-                  onImageError={() => onImageError(f.familia_id)}
-                />
-              ))}
+                {/* Ordenar */}
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <label className="text-sm font-medium text-gray-600">Ordenar:</label>
+                  <select
+                    value={ordenFilter}
+                    onChange={(e) => setOrdenFilter(e.target.value)}
+                    className="flex-1 sm:flex-initial px-4 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm"
+                  >
+                    {ORDEN_OPTIONS.map(o => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
             </div>
+          </div>
 
-            {/* ⬅️ NUEVO: Componente de paginación */}
-            {paginacion && paginacion.total_paginas > 1 && (
-              <div className="mt-8">
-                <Pagination
-                  currentPage={paginacion.pagina_actual}
-                  totalPages={paginacion.total_paginas}
-                  totalItems={paginacion.total}
-                  itemsPerPage={paginacion.por_pagina}
-                  onPageChange={handlePageChange}
-                />
+          {/* Chips de filtros activos */}
+          <FilterChips
+            filters={activeFilters}
+            onRemove={removeFilter}
+            onClearAll={limpiarFiltros}
+          />
+
+          {/* Contenido */}
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            {/* Loading */}
+            {loading && (
+              <div className="text-center py-12">
+                <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-4 border-blue-600" />
+                <p className="mt-4 text-gray-600 font-medium">Buscando productos...</p>
               </div>
             )}
-          </>
-        )}
 
-        {/* Error */}
-        {error && (
-          <div className="text-center py-16 bg-red-50 rounded-xl border-2 border-red-200">
-            <div className="text-5xl mb-4">⚠️</div>
-            <p className="text-red-600 text-lg font-medium mb-4">{error}</p>
-            <button
-              onClick={() => fetchProductos(currentPage)}
-              className="px-8 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold shadow-lg transition-all"
-            >
-              🔄 Reintentar
-            </button>
+            {/* Sin búsqueda */}
+            {!loading && !hayBusqueda && familiasValidas.length === 0 && (
+              <div className="text-center py-16 bg-white rounded-xl shadow-sm border border-gray-200">
+                <div className="text-6xl mb-4">🔍</div>
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">Buscá tu calzado ideal</h3>
+                <p className="text-gray-600 max-w-md mx-auto mb-4">
+                  Usá los filtros o el buscador para encontrar productos
+                </p>
+                <button
+                  onClick={() => setFilterModalOpen(true)}
+                  className="lg:hidden px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+                >
+                  Abrir filtros
+                </button>
+              </div>
+            )}
+
+            {/* Grid de productos */}
+            {!loading && familiasValidas.length > 0 && (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  {familiasValidas.map(f => (
+                    <ProductCard 
+                      key={f.familia_id} 
+                      familia={f}
+                      onImageError={() => onImageError(f.familia_id)}
+                    />
+                  ))}
+                </div>
+
+                {/* Paginación */}
+                {paginacion && paginacion.total_paginas > 1 && (
+                  <div className="mt-8">
+                    <Pagination
+                      currentPage={paginacion.pagina_actual}
+                      totalPages={paginacion.total_paginas}
+                      totalItems={paginacion.total}
+                      itemsPerPage={paginacion.por_pagina}
+                      onPageChange={handlePageChange}
+                    />
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Error */}
+            {error && (
+              <div className="text-center py-16 bg-red-50 rounded-xl border-2 border-red-200">
+                <div className="text-5xl mb-4">⚠️</div>
+                <p className="text-red-600 text-lg font-medium mb-4">{error}</p>
+                <button
+                  onClick={() => fetchProductos(currentPage)}
+                  className="px-8 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold shadow-lg transition-all"
+                >
+                  🔄 Reintentar
+                </button>
+              </div>
+            )}
           </div>
-        )}
+        </main>
       </div>
+
+      {/* ========== MODAL DE FILTROS (Mobile) ========== */}
+      <FilterModal
+        isOpen={filterModalOpen}
+        onClose={() => setFilterModalOpen(false)}
+        onApply={() => fetchProductos(1)}
+        taxonomias={taxonomiasDisponibles}
+        lineas={lineasDisponibles}
+        marcas={marcasDisponibles}
+        rubros={RUBROS}
+        taxonomiaSeleccionada={taxonomiaFilter}
+        lineaSeleccionada={lineaFilter}
+        marcaSeleccionada={marcaFilter}
+        rubroSeleccionado={rubroFilter}
+        soloDestacados={soloDestacados}
+        onTaxonomiaChange={setTaxonomiaFilter}
+        onLineaChange={setLineaFilter}
+        onMarcaChange={setMarcaFilter}
+        onRubroChange={setRubroFilter}
+        onDestacadosChange={setSoloDestacados}
+        totalResultados={paginacion?.total}
+      />
     </div>
   );
 }
