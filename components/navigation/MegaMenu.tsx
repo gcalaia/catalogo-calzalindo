@@ -18,7 +18,7 @@ export function MegaMenu({ items }: MegaMenuProps) {
     <nav className="hidden lg:block border-b border-neutral-200">
       {/* Tabs principales */}
       <div className="container mx-auto px-4">
-        <ul className="flex items-center gap-8 h-14">
+        <ul className="flex items-center gap-6 h-12">
           {items.map((item) => (
             <li
               key={item.label}
@@ -32,7 +32,7 @@ export function MegaMenu({ items }: MegaMenuProps) {
               <Link
                 href={item.href}
                 className={cn(
-                  "flex items-center gap-2 text-sm font-medium transition-colors h-14",
+                  "flex items-center gap-1.5 text-sm font-medium transition-colors h-12",
                   "hover:text-neutral-900",
                   activeTab === item.label ? "text-neutral-900" : "text-neutral-600"
                 )}
@@ -48,25 +48,22 @@ export function MegaMenu({ items }: MegaMenuProps) {
 
               {/* Mega menú desplegable */}
               {item.children && activeTab === item.label && (
-                <div
-                  className="absolute left-0 top-full w-screen bg-white shadow-lg border-t border-neutral-200 z-50"
-                  style={{ left: "50%", transform: "translateX(-50%)" }}
-                >
-                  <div className="container mx-auto px-4 py-8">
-                    <div className="grid grid-cols-4 gap-8">
-                      {item.children.map((category) => (
+                <div className="absolute left-0 top-full bg-white shadow-xl border-t border-neutral-200 z-50 rounded-b-lg">
+                  <div className="p-6 min-w-[800px] max-w-5xl">
+                    <div className="grid grid-cols-3 gap-x-8 gap-y-6">
+                      {item.children.slice(0, 6).map((category) => (
                         <div key={category.label}>
                           {/* Categoría principal */}
                           <div
-                            className="mb-4"
+                            className="mb-3"
                             onMouseEnter={() => setActiveSubmenu(category.label)}
                           >
                             <Link
                               href={category.href}
-                              className="flex items-center gap-2 text-sm font-semibold text-neutral-900 hover:text-neutral-600 transition-colors"
+                              className="flex items-center gap-2 text-xs font-bold text-neutral-900 hover:text-blue-600 transition-colors uppercase tracking-wide"
                             >
                               {category.icon && (
-                                <span className="text-lg">{category.icon}</span>
+                                <span className="text-sm">{category.icon}</span>
                               )}
                               {category.label}
                             </Link>
@@ -74,19 +71,19 @@ export function MegaMenu({ items }: MegaMenuProps) {
 
                           {/* Subcategorías */}
                           {category.children && (
-                            <ul className="space-y-2">
-                              {category.children.map((subcategory) => (
+                            <ul className="space-y-1.5">
+                              {category.children.slice(0, 6).map((subcategory) => (
                                 <li
                                   key={subcategory.label}
                                   onMouseEnter={() => setActiveSubmenu(subcategory.label)}
                                 >
                                   <Link
                                     href={subcategory.href}
-                                    className="flex items-center justify-between text-sm text-neutral-600 hover:text-neutral-900 transition-colors group"
+                                    className="flex items-center justify-between text-xs text-neutral-600 hover:text-blue-600 transition-colors group py-1"
                                   >
-                                    <span className="flex items-center gap-2">
+                                    <span className="flex items-center gap-1.5">
                                       {subcategory.icon && (
-                                        <span className="text-base">{subcategory.icon}</span>
+                                        <span className="text-sm">{subcategory.icon}</span>
                                       )}
                                       {subcategory.label}
                                     </span>
@@ -98,15 +95,15 @@ export function MegaMenu({ items }: MegaMenuProps) {
                                   {/* Sub-subcategorías (nivel 3) */}
                                   {subcategory.children &&
                                     activeSubmenu === subcategory.label && (
-                                      <ul className="ml-4 mt-2 space-y-1.5 pl-3 border-l-2 border-neutral-200">
-                                        {subcategory.children.map((item) => (
+                                      <ul className="ml-3 mt-1.5 space-y-1 pl-2 border-l-2 border-neutral-200">
+                                        {subcategory.children.slice(0, 5).map((item) => (
                                           <li key={item.label}>
                                             <Link
                                               href={item.href}
-                                              className="flex items-center gap-2 text-xs text-neutral-500 hover:text-neutral-900 transition-colors"
+                                              className="flex items-center gap-1.5 text-xs text-neutral-500 hover:text-blue-600 transition-colors py-0.5"
                                             >
                                               {item.icon && (
-                                                <span>{item.icon}</span>
+                                                <span className="text-xs">{item.icon}</span>
                                               )}
                                               {item.label}
                                             </Link>
@@ -117,6 +114,16 @@ export function MegaMenu({ items }: MegaMenuProps) {
                                 </li>
                               ))}
                             </ul>
+                          )}
+
+                          {/* Ver todos si hay más de 6 items */}
+                          {category.children && category.children.length > 6 && (
+                            <Link
+                              href={category.href}
+                              className="inline-block mt-2 text-xs text-blue-600 hover:text-blue-700 font-medium"
+                            >
+                              Ver todos →
+                            </Link>
                           )}
                         </div>
                       ))}

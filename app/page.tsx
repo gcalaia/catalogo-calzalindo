@@ -4,9 +4,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import ProductCard from '@/components/ProductCard';
 import Pagination from '@/components/Pagination';
-import Sidebar from '@/components/Sidebar';
 import FilterChips from '@/components/FilterChips';
-import FilterModal from '@/components/FilterModal';
 
 interface Producto {
   id: number;
@@ -54,14 +52,6 @@ interface PaginacionInfo {
   tiene_siguiente: boolean;
 }
 
-const RUBROS = [
-  { value: 'all', label: 'Todos' },
-  { value: 'DAMAS', label: 'Damas' },
-  { value: 'HOMBRES', label: 'Hombres' },
-  { value: 'NIÑOS', label: 'Niños' },
-  { value: 'NIÑAS', label: 'Niñas' },
-];
-
 const ORDEN_OPTIONS = [
   { value: 'nuevos', label: 'Más nuevos' },
   { value: 'nombre', label: 'Alfabético' },
@@ -94,8 +84,6 @@ export default function Home() {
   const [lineasDisponibles, setLineasDisponibles] = useState<string[]>([]);
 
   // UI State
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [filterModalOpen, setFilterModalOpen] = useState(false);
   const [imagenesFallidas, setImagenesFallidas] = useState<Set<string>>(new Set());
 
   const onImageError = useCallback((familiaId: string) => {
@@ -123,7 +111,13 @@ export default function Home() {
     }
     
     if (rubroFilter !== 'all') {
-      const rubroLabel = RUBROS.find(r => r.value === rubroFilter)?.label || rubroFilter;
+      const rubroLabels: Record<string, string> = {
+        'DAMAS': 'Mujer',
+        'HOMBRES': 'Hombre',
+        'NIÑOS': 'Niños',
+        'NIÑAS': 'Niñas',
+      };
+      const rubroLabel = rubroLabels[rubroFilter] || rubroFilter;
       chips.push({
         key: 'rubro',
         label: rubroLabel,
@@ -187,6 +181,7 @@ export default function Home() {
     const taxonomia = params.get('taxonomia');
     const linea = params.get('linea');
     const orden = params.get('orden');
+    const destacados = params.get('destacados');
 
     if (search) setSearchTerm(search);
     if (rubro && rubro !== 'all') setRubroFilter(rubro);
@@ -194,6 +189,7 @@ export default function Home() {
     if (taxonomia) setTaxonomiaFilter(taxonomia);
     if (linea) setLineaFilter(linea);
     if (orden) setOrdenFilter(orden);
+    if (destacados === '1') setSoloDestacados(true);
   }, []);
 
   // Búsqueda de productos con reset de página al cambiar filtros
@@ -352,6 +348,7 @@ export default function Home() {
     setImagenesFallidas(new Set());
     setCurrentPage(1);
     setPaginacion(null);
+    window.history.pushState({}, '', '/');
   }
 
   const handlePageChange = (newPage: number) => {
@@ -364,7 +361,6 @@ export default function Home() {
 
   const familiasValidas = familias.filter(f => !imagenesFallidas.has(f.familia_id));
   const activeFilters = getActiveFilters();
-  const cantidadFiltros = activeFilters.length;
 
   if (loadingFilters) {
     return (
@@ -379,201 +375,133 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      <div className="flex">
-        {/* ========== SIDEBAR (Solo desktop) ========== */}
-        <div className="hidden lg:block">
-          <Sidebar
-            taxonomias={taxonomiasDisponibles}
-            lineas={lineasDisponibles}
-            marcas={marcasDisponibles}
-            rubros={RUBROS}
-            taxonomiaSeleccionada={taxonomiaFilter}
-            lineaSeleccionada={lineaFilter}
-            marcaSeleccionada={marcaFilter}
-            rubroSeleccionado={rubroFilter}
-            soloDestacados={soloDestacados}
-            onTaxonomiaChange={setTaxonomiaFilter}
-            onLineaChange={setLineaFilter}
-            onMarcaChange={setMarcaFilter}
-            onRubroChange={setRubroFilter}
-            onDestacadosChange={setSoloDestacados}
-            onLimpiarFiltros={limpiarFiltros}
-            isOpen={false}
-            onToggle={() => {}}
-          />
+      {/* Barra de info y ordenar - LIMPIA */}
+      <div className="bg-white border-b border-gray-200 sticky top-[140px] z-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center justify-between">
+            {/* Contador de productos */}
+            <div>
+              {!loading && familiasValidas.length > 0 && paginacion && (
+                <div className="flex items-center gap-4">
+                  <p className="text-base font-semibold text-gray-900">
+                    🎯 {paginacion.total.toLocaleString()} productos
+                  </p>
+                  <span className="text-sm text-gray-500">
+                    Página {paginacion.pagina_actual} de {paginacion.total_paginas}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Ordenar */}
+            <div className="flex items-center gap-3">
+              <label className="text-sm font-medium text-gray-700">Ordenar por:</label>
+              <select
+                value={ordenFilter}
+                onChange={(e) => setOrdenFilter(e.target.value)}
+                className="px-4 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm bg-white"
+              >
+                {ORDEN_OPTIONS.map(o => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
         </div>
-
-        {/* ========== CONTENIDO PRINCIPAL ========== */}
-        <main className="flex-1">
-          {/* Header con buscador */}
-          <div className="sticky top-0 z-30 bg-white border-b border-gray-200 shadow-sm">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-              <div className="flex items-center gap-4">
-                {/* Buscador */}
-                <div className="flex-1 relative">
-                  <input
-                    type="text"
-                    placeholder="Buscar productos..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full px-6 py-3 pl-12 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-                  />
-                  <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Barra de filtros mobile + info */}
-          <div className="bg-white border-b border-gray-200">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                {/* Botón filtros (mobile) + Contador */}
-                <div className="flex items-center gap-3 w-full sm:w-auto">
-                  <button
-                    onClick={() => setFilterModalOpen(true)}
-                    className="lg:hidden flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                    </svg>
-                    Filtros
-                    {cantidadFiltros > 0 && (
-                      <span className="bg-white text-blue-600 px-2 py-0.5 rounded-full text-xs font-bold">
-                        {cantidadFiltros}
-                      </span>
-                    )}
-                  </button>
-
-                  {!loading && familiasValidas.length > 0 && paginacion && (
-                    <p className="text-sm font-semibold text-gray-700">
-                      🎯 {paginacion.total.toLocaleString()} productos
-                      <span className="hidden sm:inline text-gray-500 font-normal ml-1">
-                        (Pág. {paginacion.pagina_actual}/{paginacion.total_paginas})
-                      </span>
-                    </p>
-                  )}
-                </div>
-
-                {/* Ordenar */}
-                <div className="flex items-center gap-2 w-full sm:w-auto">
-                  <label className="text-sm font-medium text-gray-600">Ordenar:</label>
-                  <select
-                    value={ordenFilter}
-                    onChange={(e) => setOrdenFilter(e.target.value)}
-                    className="flex-1 sm:flex-initial px-4 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm"
-                  >
-                    {ORDEN_OPTIONS.map(o => (
-                      <option key={o.value} value={o.value}>{o.label}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Chips de filtros activos */}
-          <FilterChips
-            filters={activeFilters}
-            onRemove={removeFilter}
-            onClearAll={limpiarFiltros}
-          />
-
-          {/* Contenido */}
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            {/* Loading */}
-            {loading && (
-              <div className="text-center py-12">
-                <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-4 border-blue-600" />
-                <p className="mt-4 text-gray-600 font-medium">Buscando productos...</p>
-              </div>
-            )}
-
-            {/* Sin búsqueda */}
-            {!loading && !hayBusqueda && familiasValidas.length === 0 && (
-              <div className="text-center py-16 bg-white rounded-xl shadow-sm border border-gray-200">
-                <div className="text-6xl mb-4">🔍</div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">Buscá tu calzado ideal</h3>
-                <p className="text-gray-600 max-w-md mx-auto mb-4">
-                  Usá los filtros o el buscador para encontrar productos
-                </p>
-                <button
-                  onClick={() => setFilterModalOpen(true)}
-                  className="lg:hidden px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
-                >
-                  Abrir filtros
-                </button>
-              </div>
-            )}
-
-            {/* Grid de productos */}
-            {!loading && familiasValidas.length > 0 && (
-              <>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                  {familiasValidas.map(f => (
-                    <ProductCard 
-                      key={f.familia_id} 
-                      familia={f}
-                      onImageError={() => onImageError(f.familia_id)}
-                    />
-                  ))}
-                </div>
-
-                {/* Paginación */}
-                {paginacion && paginacion.total_paginas > 1 && (
-                  <div className="mt-8">
-                    <Pagination
-                      currentPage={paginacion.pagina_actual}
-                      totalPages={paginacion.total_paginas}
-                      totalItems={paginacion.total}
-                      itemsPerPage={paginacion.por_pagina}
-                      onPageChange={handlePageChange}
-                    />
-                  </div>
-                )}
-              </>
-            )}
-
-            {/* Error */}
-            {error && (
-              <div className="text-center py-16 bg-red-50 rounded-xl border-2 border-red-200">
-                <div className="text-5xl mb-4">⚠️</div>
-                <p className="text-red-600 text-lg font-medium mb-4">{error}</p>
-                <button
-                  onClick={() => fetchProductos(currentPage)}
-                  className="px-8 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold shadow-lg transition-all"
-                >
-                  🔄 Reintentar
-                </button>
-              </div>
-            )}
-          </div>
-        </main>
       </div>
 
-      {/* ========== MODAL DE FILTROS (Mobile) ========== */}
-      <FilterModal
-        isOpen={filterModalOpen}
-        onClose={() => setFilterModalOpen(false)}
-        onApply={() => fetchProductos(1)}
-        taxonomias={taxonomiasDisponibles}
-        lineas={lineasDisponibles}
-        marcas={marcasDisponibles}
-        rubros={RUBROS}
-        taxonomiaSeleccionada={taxonomiaFilter}
-        lineaSeleccionada={lineaFilter}
-        marcaSeleccionada={marcaFilter}
-        rubroSeleccionado={rubroFilter}
-        soloDestacados={soloDestacados}
-        onTaxonomiaChange={setTaxonomiaFilter}
-        onLineaChange={setLineaFilter}
-        onMarcaChange={setMarcaFilter}
-        onRubroChange={setRubroFilter}
-        onDestacadosChange={setSoloDestacados}
-        totalResultados={paginacion?.total}
-      />
+      {/* Chips de filtros activos */}
+      {activeFilters.length > 0 && (
+        <FilterChips
+          filters={activeFilters}
+          onRemove={removeFilter}
+          onClearAll={limpiarFiltros}
+        />
+      )}
+
+      {/* Contenido principal */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Loading */}
+        {loading && (
+          <div className="text-center py-12">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-4 border-blue-600" />
+            <p className="mt-4 text-gray-600 font-medium">Buscando productos...</p>
+          </div>
+        )}
+
+        {/* Sin búsqueda */}
+        {!loading && !hayBusqueda && familiasValidas.length === 0 && (
+          <div className="text-center py-16 bg-white rounded-xl shadow-sm border border-gray-200">
+            <div className="text-6xl mb-4">🔍</div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">Buscá tu calzado ideal</h3>
+            <p className="text-gray-600 max-w-md mx-auto mb-6">
+              Usá el buscador o navegá por las categorías del menú superior
+            </p>
+            <div className="flex justify-center gap-3">
+              <button
+                onClick={() => {
+                  setRubroFilter('DAMAS');
+                  window.history.pushState({}, '', '?rubro=DAMAS');
+                }}
+                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold transition-colors"
+              >
+                👩 Ver Mujer
+              </button>
+              <button
+                onClick={() => {
+                  setRubroFilter('HOMBRES');
+                  window.history.pushState({}, '', '?rubro=HOMBRES');
+                }}
+                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold transition-colors"
+              >
+                👨 Ver Hombre
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Grid de productos */}
+        {!loading && familiasValidas.length > 0 && (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {familiasValidas.map(f => (
+                <ProductCard 
+                  key={f.familia_id} 
+                  familia={f}
+                  onImageError={() => onImageError(f.familia_id)}
+                />
+              ))}
+            </div>
+
+            {/* Paginación */}
+            {paginacion && paginacion.total_paginas > 1 && (
+              <div className="mt-8">
+                <Pagination
+                  currentPage={paginacion.pagina_actual}
+                  totalPages={paginacion.total_paginas}
+                  totalItems={paginacion.total}
+                  itemsPerPage={paginacion.por_pagina}
+                  onPageChange={handlePageChange}
+                />
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Error */}
+        {error && (
+          <div className="text-center py-16 bg-red-50 rounded-xl border-2 border-red-200">
+            <div className="text-5xl mb-4">⚠️</div>
+            <p className="text-red-600 text-lg font-medium mb-4">{error}</p>
+            <button
+              onClick={() => fetchProductos(currentPage)}
+              className="px-8 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold shadow-lg transition-all"
+            >
+              🔄 Reintentar
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

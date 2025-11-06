@@ -1,13 +1,17 @@
-"use client";
-
 import Link from "next/link";
 import Image from "next/image";
 import { Search, ShoppingCart, User, Heart } from "lucide-react";
 import { MegaMenu } from "./MegaMenu";
 import { MobileMenu } from "./MobileMenu";
-import { navigationTree } from "@/lib/navigation";
+import { getNavigationFromAPI } from "@/lib/get-navigation-api";
 
-export function Header() {
+/**
+ * Header dinámico simplificado - Sin duplicados
+ */
+export async function HeaderDynamic() {
+  // Obtener navegación desde tu API
+  const navigationTree = await getNavigationFromAPI();
+
   return (
     <header className="sticky top-0 z-40 bg-white shadow-sm">
       {/* Barra promocional */}
@@ -39,14 +43,15 @@ export function Header() {
 
           {/* Buscador (desktop) */}
           <div className="hidden md:flex flex-1 max-w-xl">
-            <div className="relative w-full">
+            <form action="/buscar" method="GET" className="relative w-full">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
               <input
                 type="search"
+                name="q"
                 placeholder="Buscar productos, marcas..."
                 className="w-full pl-10 pr-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent"
               />
-            </div>
+            </form>
           </div>
 
           {/* Acciones */}
@@ -76,9 +81,8 @@ export function Header() {
               aria-label="Carrito"
             >
               <ShoppingCart className="w-5 h-5" />
-              {/* Badge con cantidad */}
               <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
-                3
+                0
               </span>
             </Link>
           </div>
@@ -86,14 +90,15 @@ export function Header() {
 
         {/* Buscador mobile */}
         <div className="md:hidden pb-3">
-          <div className="relative">
+          <form action="/buscar" method="GET" className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
             <input
               type="search"
+              name="q"
               placeholder="Buscar..."
               className="w-full pl-9 pr-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent text-sm"
             />
-          </div>
+          </form>
         </div>
       </div>
 
